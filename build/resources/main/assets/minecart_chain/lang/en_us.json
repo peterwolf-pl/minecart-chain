@@ -1,0 +1,11 @@
+{
+	"block.minecart_chain.signal_rail": "Signal Rail",
+	"container.minecart_chain.fuel": "Fuel",
+	"container.minecart_chain.locomotive": "Furnace Minecart",
+	"container.minecart_chain.water": "Water",
+	"message.minecart_chain.signal_rail.mode": "Signal Rail mode: %s",
+	"message.minecart_chain.signal_rail.mode.brake": "Brake",
+	"message.minecart_chain.signal_rail.mode.reverse": "Reverse",
+	"message.minecart_chain.signal_rail.mode.throttle": "Throttle",
+	"modmenu.nameTranslation.minecart_chain": "Minecart Chain"
+}

@@ -1,0 +1,11 @@
+{
+	"block.minecart_chain.signal_rail": "Tor sygnałowy",
+	"container.minecart_chain.fuel": "Paliwo",
+	"container.minecart_chain.locomotive": "Wagonik z piecem",
+	"container.minecart_chain.water": "Woda",
+	"message.minecart_chain.signal_rail.mode": "Tryb toru sygnałowego: %s",
+	"message.minecart_chain.signal_rail.mode.brake": "Hamulec",
+	"message.minecart_chain.signal_rail.mode.reverse": "Bieg wsteczny",
+	"message.minecart_chain.signal_rail.mode.throttle": "Przepustnica",
+	"modmenu.nameTranslation.minecart_chain": "Minecart Chain"
+}

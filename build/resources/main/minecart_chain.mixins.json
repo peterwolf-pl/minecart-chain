@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"package": "com.piotrek.minecartchain.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"AbstractMinecartMixin",
+		"MinecartFurnaceMixin"
+	],
+	"client": [
+		"client.AbstractMinecartRendererMixin",
+		"client.CameraMixin",
+		"client.MinecartRenderStateMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
