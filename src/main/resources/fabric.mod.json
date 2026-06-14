@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "minecart_chain",
+	"version": "${version}",
+	"name": "Minecart Chain",
+	"description": "Allows minecarts to be chained with iron chains and driven by a lever-controlled furnace minecart.",
+	"authors": [
+		"Piotrek"
+	],
+	"icon": "assets/minecart_chain/icon.png",
+	"license": "CC0-1.0",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.piotrek.minecartchain.MinecartChainMod"
+		],
+		"client": [
+			"com.piotrek.minecartchain.client.MinecartChainClient"
+		]
+	},
+	"mixins": [
+		"minecart_chain.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

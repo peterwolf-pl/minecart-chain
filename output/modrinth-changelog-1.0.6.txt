@@ -1,0 +1,11 @@
+Minecart Chain 1.0.6
+
+Added
+- Added locomotive fueling with all vanilla furnace fuels, including coal, charcoal, logs, planks, sticks, wooden tools, and lava buckets.
+- Added locomotive water filling with water buckets.
+
+Changed
+- Furnace minecart locomotives now require both fuel and water before the custom engine can drive.
+- Fuel is consumed only while the locomotive is driving, and the fuel cost scales with the number of connected minecarts in the train.
+- Water is consumed while driving at a slower train-size-scaled rate.
+- Coal and charcoal keep the vanilla furnace minecart fuel value, while other fuels scale from vanilla furnace burn times.

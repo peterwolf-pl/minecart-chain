@@ -1,0 +1,11 @@
+Minecart Chain 1.0.8
+
+Added
+- Added Signal Rail, a powered-rail-looking track that sends a redstone-driven control signal to the connected train.
+- Right-clicking Signal Rail cycles its mode between Throttle, Brake, and Reverse.
+- A powered Signal Rail toggles the selected locomotive lever once when any cart in the connected train passes over it.
+- Signal Rail works through the whole chained train, so a passenger or cargo cart can trigger the locomotive controls.
+- Added crafting, drops, rail tags, creative-tab placement, and English/Polish translations for Signal Rail.
+
+Changed
+- Reverse signals can be applied before a brake signal, allowing a direction signal followed by a brake signal to set up a train turnaround.

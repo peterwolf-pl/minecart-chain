@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "minecart_chain:item/signal_rail"
+  }
+}

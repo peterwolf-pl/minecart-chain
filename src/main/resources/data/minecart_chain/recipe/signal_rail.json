@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    "minecraft:powered_rail",
+    "minecraft:redstone_torch",
+    "minecraft:lever"
+  ],
+  "result": {
+    "id": "minecart_chain:signal_rail"
+  }
+}

@@ -1,0 +1,8 @@
+Minecart Chain 1.0.7
+
+Added
+- Added a furnace-minecart-style locomotive screen that shows current fuel and water reserves.
+
+Changed
+- Right-clicking the body of a furnace minecart opens the locomotive screen while the existing control panels still operate the brake, direction, and throttle.
+- Locomotive smoke now emits only from the custom chimney; the vanilla furnace minecart smoke particle is suppressed for controlled locomotives.

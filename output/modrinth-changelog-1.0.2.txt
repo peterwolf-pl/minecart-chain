@@ -1,0 +1,17 @@
+Minecart Chain 1.0.2
+
+Added
+- Added a second furnace minecart control lever: Throttle.
+- The throttle toggles between slow power (1/3 power) and full power.
+- Added colored control pads on furnace minecarts: red for Brake, black for Throttle.
+
+Changed
+- Reduced the target spacing between linked minecarts by 0.5 blocks.
+- Improved corner handling so linked carts apply less resistance while turning.
+- Slow throttle mode now limits engine force and speed for smoother low-speed driving.
+- Full throttle mode restores maximum engine power for faster travel.
+
+Notes
+- Brake remains engaged by default when a furnace minecart is first linked.
+- Click the brake side of the furnace minecart to toggle the brake.
+- Click the throttle side of the furnace minecart to switch between slow and full power.
