@@ -100,3 +100,10 @@ Switching yards
 Station control systems
 Long-distance railway routes
 More realistic Minecraft train networks
+
+
+
+
+CONFIG:
+
+minecraft_version=26.1.2, Loader 0.19.3, Fabric API 0.150.0+26.1.2, Java 25, mod 1.0.8. 
