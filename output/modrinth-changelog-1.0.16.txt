@@ -1,0 +1,15 @@
+Minecart Chain 1.0.16
+
+Curve handling
+
+- Linked minecarts now keep their spacing corrections aligned with the live tangent of vanilla curved rails instead of being pulled across the inside of a corner.
+- Direct position corrections are suppressed while a cart is on a curved or externally guided track, preventing visible corner snapping while velocity-based chain tension remains active.
+- Locomotive orientation now keeps the nearest continuous front direction when vanilla switches to an equivalent 180-degree minecart body rotation on a corner.
+- Locomotive yaw can follow tight curves faster without introducing an instant rotation snap.
+
+Mod compatibility
+
+- Added a small external-track guidance API so custom curve controllers can provide their current path direction without creating a hard Minecart Chain dependency on a specific rail mod.
+- Peterwolf's RailRoad's One 0.3.7 uses this API for smoother chained travel through its 2x2 and 3x3 curves.
+
+Target: Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.153.0+26.2, Java 25.

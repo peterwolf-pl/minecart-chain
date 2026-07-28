@@ -86,13 +86,16 @@ public abstract class MinecartFurnaceMixin implements MinecartLocomotiveAccess {
 		}
 
 		boolean fullThrottle = data.minecartChain$isFullThrottle();
-		this.push = MinecartTrainLogic.enginePushVector(direction, fullThrottle);
+		this.push = MinecartTrainLogic.usesMountedTrack(furnace)
+			? Vec3.ZERO
+			: MinecartTrainLogic.enginePushVector(direction, fullThrottle);
 		MinecartTrainLogic.applyEngineAssist(furnace, direction, fullThrottle);
 		MinecartTrainLogic.guidePoweredTrain(furnace, direction);
 		MinecartTrainLogic.emitLocomotiveSmoke(furnace);
-		this.fuel = Math.max(0, this.fuel - MinecartTrainLogic.locomotiveFuelCost(furnace));
-		data.minecartChain$setWaterTicks(data.minecartChain$getWaterTicks() - MinecartTrainLogic.locomotiveWaterCost(furnace));
-		this.setHasFuel(true);
+		int trainSize = MinecartTrainLogic.connectedTrainSize(furnace);
+		this.fuel = Math.max(0, this.fuel - MinecartTrainLogic.locomotiveFuelCost(trainSize));
+		data.minecartChain$setWaterTicks(data.minecartChain$getWaterTicks() - MinecartTrainLogic.locomotiveWaterCost(trainSize));
+		this.setHasFuel(this.fuel > 0);
 	}
 
 	@Override

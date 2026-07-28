@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -32,58 +31,62 @@ public final class MinecartLinkHandler {
 	private MinecartLinkHandler() {
 	}
 
-	public static void register() {
-		UseEntityCallback.EVENT.register((player, level, hand, entity, hitResult) -> {
-			if (!(entity instanceof AbstractMinecart minecart)) {
-				return InteractionResult.PASS;
-			}
-
-			ItemStack stack = player.getItemInHand(hand);
-			if (stack.getItem() == Items.IRON_CHAIN) {
-				if (!level.isClientSide()) {
-					handleChainUse(player, level, hand, minecart, stack);
-				}
-				return InteractionResult.SUCCESS;
-			}
-
-			if (minecart instanceof MinecartFurnace furnace) {
-				if (stack.getItem() == Items.WATER_BUCKET) {
-					if (!level.isClientSide()) {
-						handleWaterUse(player, level, hand, furnace, stack);
-					}
-					return InteractionResult.SUCCESS;
-				}
-
-				if (level.fuelValues().isFuel(stack)) {
-					if (!level.isClientSide()) {
-						handleFuelUse(player, level, hand, furnace, stack);
-					}
-					return InteractionResult.SUCCESS;
-				}
-
-				if (canUseControls(furnace, stack)) {
-					MinecartControlLayout.Control control = MinecartControlLayout.hitControl(furnace, player, hitResult);
-					if (((MinecartChainAccess) furnace).minecartChain$hasEngineLever() && control == MinecartControlLayout.Control.NONE) {
-						if (!level.isClientSide()) {
-							openLocomotiveMenu(player, furnace);
-						}
-						return InteractionResult.SUCCESS;
-					}
-
-					if (!level.isClientSide()) {
-						handleControlUse(player, level, furnace, stack, control);
-					}
-					return InteractionResult.SUCCESS;
-				}
-
-				if (!level.isClientSide()) {
-					openLocomotiveMenu(player, furnace);
-				}
-				return InteractionResult.SUCCESS;
-			}
-
+	public static InteractionResult handleInteraction(
+		final Player player,
+		final Level level,
+		final InteractionHand hand,
+		final Entity entity,
+		final net.minecraft.world.phys.EntityHitResult hitResult
+	) {
+		if (!(entity instanceof AbstractMinecart minecart)) {
 			return InteractionResult.PASS;
-		});
+		}
+
+		ItemStack stack = player.getItemInHand(hand);
+		if (stack.getItem() == Items.IRON_CHAIN) {
+			if (!level.isClientSide()) {
+				handleChainUse(player, level, hand, minecart, stack);
+			}
+			return InteractionResult.SUCCESS;
+		}
+
+		if (minecart instanceof MinecartFurnace furnace) {
+			if (stack.getItem() == Items.WATER_BUCKET) {
+				if (!level.isClientSide()) {
+					handleWaterUse(player, level, hand, furnace, stack);
+				}
+				return InteractionResult.SUCCESS;
+			}
+
+			if (level.fuelValues().isFuel(stack)) {
+				if (!level.isClientSide()) {
+					handleFuelUse(player, level, hand, furnace, stack);
+				}
+				return InteractionResult.SUCCESS;
+			}
+
+			if (canUseControls(furnace, stack)) {
+				MinecartControlLayout.Control control = MinecartControlLayout.hitControl(furnace, player, hitResult);
+				if (((MinecartChainAccess) furnace).minecartChain$hasEngineLever() && control == MinecartControlLayout.Control.NONE) {
+					if (!level.isClientSide()) {
+						openLocomotiveMenu(player, furnace);
+					}
+					return InteractionResult.SUCCESS;
+				}
+
+				if (!level.isClientSide()) {
+					handleControlUse(player, level, furnace, stack, control);
+				}
+				return InteractionResult.SUCCESS;
+			}
+
+			if (!level.isClientSide()) {
+				openLocomotiveMenu(player, furnace);
+			}
+			return InteractionResult.SUCCESS;
+		}
+
+		return InteractionResult.PASS;
 	}
 
 	private static void openLocomotiveMenu(final Player player, final MinecartFurnace furnace) {
@@ -343,6 +346,14 @@ public final class MinecartLinkHandler {
 		data.minecartChain$getFirstLink().ifPresent(links::add);
 		data.minecartChain$getSecondLink().ifPresent(links::add);
 		return links;
+	}
+
+	static void clearSelection(final UUID playerId) {
+		SELECTED_CARTS.remove(playerId);
+	}
+
+	static void clearRuntimeState() {
+		SELECTED_CARTS.clear();
 	}
 
 	private static void consumeStackWithRemainder(final ServerPlayer player, final InteractionHand hand, final ItemStack stack) {

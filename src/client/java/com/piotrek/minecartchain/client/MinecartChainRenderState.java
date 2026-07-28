@@ -43,6 +43,14 @@ public interface MinecartChainRenderState {
 
 	void minecartChain$setLocomotiveYaw(float yaw);
 
+	boolean minecartChain$isMountedTrack();
+
+	void minecartChain$setMountedTrack(boolean mountedTrack);
+
+	boolean minecartChain$shouldFlipMountedTrackControls();
+
+	void minecartChain$setFlipMountedTrackControls(boolean flipMountedTrackControls);
+
 	List<Vec3> minecartChain$chainOffsets();
 
 	void minecartChain$clearChainOffsets();

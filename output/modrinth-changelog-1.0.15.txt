@@ -1,0 +1,21 @@
+Minecart Chain 1.0.15
+
+Fixes
+
+- Signal Rail in Reverse mode can no longer change a locomotive's direction while the train is moving. Automated reversing now follows the same stopped-train safety rule as the manual direction lever.
+- Temporary minecart-link selections are now removed when a player disconnects.
+- Signal Rail activation data and train-guidance caches are cleared when the server stops, preventing stale runtime state from carrying into another world or server session.
+
+Performance
+
+- Unlinked minecarts now skip chain-physics processing immediately.
+- Frequently executed train lookups no longer create stream pipelines for simple two-link searches.
+- Locomotive fuel and water consumption reuse one train-size calculation per tick.
+- Minecarts without visible chains no longer rebuild chain render models every frame.
+- Regular minecarts and furnace minecarts without locomotive controls skip unnecessary control and Splinecart render-state calculations.
+- Immutable chain, lever, control-base, and chimney block states are reused by the renderer.
+
+Compatibility
+
+- The optional Peterwolfs Splinecart bridge no longer enters a synchronized resolution path after its reflective API has been detected.
+- Retains compatibility with Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.153.0+26.2, Java 25, and Peterwolfs Splinecart 0.4.4+26.2.

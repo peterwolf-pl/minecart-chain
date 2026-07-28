@@ -1,0 +1,6 @@
+Compatibility fix for Peterwolfs Splinecart rails:
+
+- Locomotives now apply power directly along the spline instead of fighting the carrier entity.
+- Linked carts now share and constrain their real along-track speed on curved spline sections.
+- Braking, spacing correction, speed limits, and smoke detection now use the spline follower's movement.
+- Position corrections no longer displace minecarts independently from their spline follower.

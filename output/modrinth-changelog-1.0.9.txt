@@ -1,0 +1,11 @@
+Minecart Chain 1.0.9
+
+Fixed
+- Added a Gradle Java 25 toolchain so the project builds even when the default local Java is older.
+- Updated the mixin compatibility level to Java 25 to match the mod metadata and compiled bytecode.
+- Furnace minecart fuel state now turns off immediately when the custom locomotive consumes its last fuel tick.
+- Signal Rail blockstates now cover custom mode and waterlogged states through multipart selectors, avoiding missing-model variants.
+
+Changed
+- Reduced duplicate follower-guidance work for powered trains when several linked carts tick in the same server tick.
+- Reused the locomotive control list during hit detection to avoid small per-click allocations.

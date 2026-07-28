@@ -1,0 +1,10 @@
+Minecart Chain 1.0.17
+
+Curve orientation fix
+
+- Fixed locomotive contents rotating by 180 degrees while passing through vanilla, 2x2, and 3x3 curves.
+- Corrected the Minecraft 26.2 render-frame conversion used to compare the locomotive's stored front with the visible minecart body.
+- Removed the 90-degree comparison offset that could make the flip decision oscillate around a corner.
+- Works with Peterwolf's RailRoad's One 0.3.9, which locks yaw and Minecraft's `flipped` pose together so pulled or pushed carts do not spin on guided 2x2 and 3x3 curves.
+
+Target: Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.153.0+26.2, Java 25.

@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.piotrek.minecartchain.MinecartChainAccess;
 import com.piotrek.minecartchain.MinecartControlLayout;
+import com.piotrek.minecartchain.MinecartTrainLogic;
 import com.piotrek.minecartchain.client.MinecartChainRenderState;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
@@ -50,6 +52,14 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 	private static final float CHIMNEY_XZ_SCALE = 0.24F;
 	private static final float CHIMNEY_Y_SCALE = 1.0F;
 	private static final float LOCOMOTIVE_FLIP_THRESHOLD = 90.0F;
+	private static final BlockState CHAIN_X_BLOCK = Blocks.IRON_CHAIN.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.X);
+	private static final BlockState CHAIN_Z_BLOCK = Blocks.IRON_CHAIN.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.Z);
+	private static final BlockState LEVER_OFF = leverBlock(false);
+	private static final BlockState LEVER_ON = leverBlock(true);
+	private static final BlockState BRAKE_BASE = Blocks.CONCRETE.pick(DyeColor.RED).defaultBlockState();
+	private static final BlockState DIRECTION_BASE = Blocks.CONCRETE.pick(DyeColor.BLUE).defaultBlockState();
+	private static final BlockState THROTTLE_BASE = Blocks.CONCRETE.pick(DyeColor.BLACK).defaultBlockState();
+	private static final BlockState CHIMNEY_BLOCK = Blocks.BLACKSTONE.defaultBlockState();
 
 	@Shadow
 	@Final
@@ -62,16 +72,20 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 		chainState.minecartChain$clearChainOffsets();
 		this.minecartChain$appendChainOffset(minecart, chainState, data.minecartChain$getFirstLink(), tickProgress);
 		this.minecartChain$appendChainOffset(minecart, chainState, data.minecartChain$getSecondLink(), tickProgress);
-		this.blockModelResolver.update(chainState.minecartChain$chainXModel(), chainBlock(Direction.Axis.X), AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$chainZModel(), chainBlock(Direction.Axis.Z), AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
+		if (!chainState.minecartChain$chainOffsets().isEmpty()) {
+			this.blockModelResolver.update(chainState.minecartChain$chainXModel(), CHAIN_X_BLOCK, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
+			this.blockModelResolver.update(chainState.minecartChain$chainZModel(), CHAIN_Z_BLOCK, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
+		}
 
-		boolean hasLever = minecart instanceof MinecartFurnace && ((MinecartChainAccess) minecart).minecartChain$hasEngineLever();
+		boolean hasLever = minecart instanceof MinecartFurnace && data.minecartChain$hasEngineLever();
 		chainState.minecartChain$setHasLever(hasLever);
-		chainState.minecartChain$setFullThrottle(((MinecartChainAccess) minecart).minecartChain$isFullThrottle());
-		chainState.minecartChain$setReversed(((MinecartChainAccess) minecart).minecartChain$isReversed());
-		chainState.minecartChain$setHasLocomotiveYaw(data.minecartChain$hasLocomotiveYaw());
-		chainState.minecartChain$setLocomotiveYaw(data.minecartChain$getLocomotiveYaw());
 		if (!hasLever) {
+			chainState.minecartChain$setFullThrottle(false);
+			chainState.minecartChain$setReversed(false);
+			chainState.minecartChain$setHasLocomotiveYaw(false);
+			chainState.minecartChain$setLocomotiveYaw(0.0F);
+			chainState.minecartChain$setMountedTrack(false);
+			chainState.minecartChain$setFlipMountedTrackControls(false);
 			chainState.minecartChain$leverModel().clear();
 			chainState.minecartChain$throttleLeverModel().clear();
 			chainState.minecartChain$directionLeverModel().clear();
@@ -79,30 +93,29 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 			chainState.minecartChain$directionBaseModel().clear();
 			chainState.minecartChain$throttleBaseModel().clear();
 			chainState.minecartChain$chimneyModel().clear();
-			chainState.minecartChain$setHasLocomotiveYaw(false);
 			return;
 		}
 
-		boolean powered = ((MinecartChainAccess) minecart).minecartChain$isEngineActive();
-		BlockState brakeLeverState = Blocks.LEVER.defaultBlockState()
-			.setValue(FaceAttachedHorizontalDirectionalBlock.FACE, AttachFace.WALL)
-			.setValue(HorizontalDirectionalBlock.FACING, Direction.EAST)
-			.setValue(LeverBlock.POWERED, powered);
-		BlockState throttleLeverState = Blocks.LEVER.defaultBlockState()
-			.setValue(FaceAttachedHorizontalDirectionalBlock.FACE, AttachFace.WALL)
-			.setValue(HorizontalDirectionalBlock.FACING, Direction.EAST)
-			.setValue(LeverBlock.POWERED, chainState.minecartChain$isFullThrottle());
-		BlockState directionLeverState = Blocks.LEVER.defaultBlockState()
-			.setValue(FaceAttachedHorizontalDirectionalBlock.FACE, AttachFace.WALL)
-			.setValue(HorizontalDirectionalBlock.FACING, Direction.EAST)
-			.setValue(LeverBlock.POWERED, chainState.minecartChain$isReversed());
+		chainState.minecartChain$setFullThrottle(data.minecartChain$isFullThrottle());
+		chainState.minecartChain$setReversed(data.minecartChain$isReversed());
+		chainState.minecartChain$setHasLocomotiveYaw(data.minecartChain$hasLocomotiveYaw());
+		chainState.minecartChain$setLocomotiveYaw(data.minecartChain$getLocomotiveYaw());
+		boolean mountedTrack = MinecartTrainLogic.usesMountedTrack(minecart);
+		chainState.minecartChain$setMountedTrack(mountedTrack);
+		chainState.minecartChain$setFlipMountedTrackControls(
+			mountedTrack && MinecartTrainLogic.shouldFlipMountedTrackLocomotiveControls(minecart)
+		);
+
+		BlockState brakeLeverState = data.minecartChain$isEngineActive() ? LEVER_ON : LEVER_OFF;
+		BlockState throttleLeverState = chainState.minecartChain$isFullThrottle() ? LEVER_ON : LEVER_OFF;
+		BlockState directionLeverState = chainState.minecartChain$isReversed() ? LEVER_ON : LEVER_OFF;
 		this.blockModelResolver.update(chainState.minecartChain$leverModel(), brakeLeverState, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
 		this.blockModelResolver.update(chainState.minecartChain$throttleLeverModel(), throttleLeverState, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
 		this.blockModelResolver.update(chainState.minecartChain$directionLeverModel(), directionLeverState, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$brakeBaseModel(), Blocks.RED_CONCRETE.defaultBlockState(), AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$directionBaseModel(), Blocks.BLUE_CONCRETE.defaultBlockState(), AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$throttleBaseModel(), Blocks.BLACK_CONCRETE.defaultBlockState(), AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$chimneyModel(), Blocks.BLACKSTONE.defaultBlockState(), AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
+		this.blockModelResolver.update(chainState.minecartChain$brakeBaseModel(), BRAKE_BASE, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
+		this.blockModelResolver.update(chainState.minecartChain$directionBaseModel(), DIRECTION_BASE, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
+		this.blockModelResolver.update(chainState.minecartChain$throttleBaseModel(), THROTTLE_BASE, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
+		this.blockModelResolver.update(chainState.minecartChain$chimneyModel(), CHIMNEY_BLOCK, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
 	}
 
 	@Inject(
@@ -196,6 +209,9 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 		if (!chainState.minecartChain$hasLever() || !chainState.minecartChain$hasLocomotiveYaw() || state.displayBlockModel.isEmpty()) {
 			return false;
 		}
+		if (chainState.minecartChain$isMountedTrack()) {
+			return chainState.minecartChain$shouldFlipMountedTrackControls();
+		}
 
 		float visualYaw = minecartChain$visualYaw(state);
 		float difference = Mth.degreesDifferenceAbs(chainState.minecartChain$getLocomotiveYaw(), visualYaw);
@@ -203,16 +219,22 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 	}
 
 	private static float minecartChain$visualYaw(final MinecartRenderState state) {
-		if (!state.isNewRender && state.frontPos != null && state.backPos != null) {
-			Vec3 visualDirection = state.backPos.subtract(state.frontPos).horizontal();
-			if (visualDirection.lengthSqr() > 1.0E-5D) {
-				return minecartChain$yawFromDirection(visualDirection);
+		if (!state.isNewRender) {
+			if (state.frontPos != null && state.backPos != null) {
+				Vec3 visualDirection = state.backPos.subtract(state.frontPos).horizontal();
+				if (visualDirection.lengthSqr() > 1.0E-5D) {
+					return minecartChain$yawFromDirection(visualDirection);
+				}
 			}
+			return Mth.wrapDegrees(state.yRot);
 		}
 
-		double radians = Math.toRadians(state.yRot);
-		Vec3 direction = new Vec3(-Math.sin(radians), 0.0D, Math.cos(radians));
-		return minecartChain$yawFromDirection(direction);
+		// NewMinecartBehavior stores the yaw applied directly to the cart pose.
+		// The locomotive's local front is -X, so its world-space front yaw is
+		// 180 - pose yaw. Treating entity yaw like a normal forward-vector yaw
+		// introduced a constant 90-degree offset and made the flip test oscillate
+		// while traversing a curve.
+		return Mth.wrapDegrees(180.0F - state.yRot);
 	}
 
 	private static float minecartChain$yawFromDirection(final Vec3 direction) {
@@ -319,7 +341,10 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 		}
 	}
 
-	private static BlockState chainBlock(final Direction.Axis axis) {
-		return Blocks.IRON_CHAIN.defaultBlockState().setValue(RotatedPillarBlock.AXIS, axis);
+	private static BlockState leverBlock(final boolean powered) {
+		return Blocks.LEVER.defaultBlockState()
+			.setValue(FaceAttachedHorizontalDirectionalBlock.FACE, AttachFace.WALL)
+			.setValue(HorizontalDirectionalBlock.FACING, Direction.EAST)
+			.setValue(LeverBlock.POWERED, powered);
 	}
 }

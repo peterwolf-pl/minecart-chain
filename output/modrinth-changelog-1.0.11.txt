@@ -1,0 +1,5 @@
+Splinecart orientation and speed fix:
+
+- Locomotive controls and chimney now follow the spline-local travel direction instead of flipping on world-space curves.
+- Locomotive speed on spline rails is capped at the vanilla rail limit of 0.4 blocks per tick.
+- Reverse travel still renders the locomotive facing the actual direction of movement.

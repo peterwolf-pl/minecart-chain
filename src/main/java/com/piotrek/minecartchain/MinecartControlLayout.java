@@ -21,6 +21,7 @@ public final class MinecartControlLayout {
 	private static final double CONTROL_HIT_Y_MIN = 0.05D;
 	private static final double CONTROL_HIT_Y_MAX = 1.1D;
 	private static final double CONTROL_AIM_RADIUS = 0.58D;
+	private static final Control[] CLICKABLE_CONTROLS = { Control.BRAKE, Control.DIRECTION, Control.THROTTLE };
 
 	private MinecartControlLayout() {
 	}
@@ -67,7 +68,7 @@ public final class MinecartControlLayout {
 
 		Control aimControl = Control.NONE;
 		double nearestAimDistance = Double.POSITIVE_INFINITY;
-		for (Control control : clickableControls()) {
+		for (Control control : CLICKABLE_CONTROLS) {
 			double aimDistance = nearestPanelAimDistanceSqr(localOrigin, localDirection, reach, controlZ(control));
 			if (aimDistance < nearestAimDistance) {
 				nearestAimDistance = aimDistance;
@@ -82,7 +83,7 @@ public final class MinecartControlLayout {
 	private static Control nearestPanelHitControl(final Vec3 localOrigin, final Vec3 localEnd) {
 		Control nearestControl = Control.NONE;
 		double nearestDistance = Double.POSITIVE_INFINITY;
-		for (Control control : clickableControls()) {
+		for (Control control : CLICKABLE_CONTROLS) {
 			double distance = nearestPanelHitDistance(localOrigin, localEnd, controlZ(control));
 			if (distance < nearestDistance) {
 				nearestDistance = distance;
@@ -143,7 +144,7 @@ public final class MinecartControlLayout {
 	private static Control controlAtLocalZ(final double localZ) {
 		Control nearestControl = Control.NONE;
 		double nearestDistance = CONTROL_HIT_Z_RADIUS;
-		for (Control control : clickableControls()) {
+		for (Control control : CLICKABLE_CONTROLS) {
 			double distance = Math.abs(localZ - controlZ(control));
 			if (distance <= nearestDistance) {
 				nearestDistance = distance;
@@ -151,10 +152,6 @@ public final class MinecartControlLayout {
 			}
 		}
 		return nearestControl;
-	}
-
-	private static Control[] clickableControls() {
-		return new Control[] { Control.BRAKE, Control.DIRECTION, Control.THROTTLE };
 	}
 
 	private static double controlZ(final Control control) {

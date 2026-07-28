@@ -41,6 +41,10 @@ public abstract class MinecartRenderStateMixin implements MinecartChainRenderSta
 	private boolean minecartChain$hasLocomotiveYaw;
 	@Unique
 	private float minecartChain$locomotiveYaw;
+	@Unique
+	private boolean minecartChain$mountedTrack;
+	@Unique
+	private boolean minecartChain$flipMountedTrackControls;
 
 	@Override
 	public BlockModelRenderState minecartChain$leverModel() {
@@ -135,6 +139,26 @@ public abstract class MinecartRenderStateMixin implements MinecartChainRenderSta
 	@Override
 	public void minecartChain$setLocomotiveYaw(final float yaw) {
 		this.minecartChain$locomotiveYaw = yaw;
+	}
+
+	@Override
+	public boolean minecartChain$isMountedTrack() {
+		return this.minecartChain$mountedTrack;
+	}
+
+	@Override
+	public void minecartChain$setMountedTrack(final boolean mountedTrack) {
+		this.minecartChain$mountedTrack = mountedTrack;
+	}
+
+	@Override
+	public boolean minecartChain$shouldFlipMountedTrackControls() {
+		return this.minecartChain$flipMountedTrackControls;
+	}
+
+	@Override
+	public void minecartChain$setFlipMountedTrackControls(final boolean flipMountedTrackControls) {
+		this.minecartChain$flipMountedTrackControls = flipMountedTrackControls;
 	}
 
 	@Override

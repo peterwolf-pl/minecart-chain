@@ -1,0 +1,4 @@
+Splinecart locomotive render correction:
+
+- Fixed the locomotive controls and chimney rotating 180 degrees when a powered furnace minecart enters Peterwolfs Splinecart rails.
+- The Splinecart render-frame correction now accounts for the follower's passenger transform instead of treating the spline segment direction as the final minecart frame.

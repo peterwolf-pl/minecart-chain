@@ -1,0 +1,17 @@
+Minecart Chain 1.0.18
+
+Efficient curve coupling
+
+- Linked cars now inherit the leader's speed magnitude along their own local rail tangent instead of losing speed when the leader and follower point in different directions on a curve.
+- Couplers now have a real slack zone: they pull only after the chain becomes taut and push only when the cart buffers become too close, instead of continuously forcing every pair back to exactly two blocks.
+- Added longitudinal damping while the chain is under tension so spacing corrections settle instead of oscillating.
+- Tight guided curves use a smaller buffer-contact distance because the natural center-to-center chord on a 2x2 quarter turn is shorter than on straight track.
+- Coupler impulses are softer while an external 2x2, 3x3, switch, or spline guide owns the path.
+- Locomotive direction now derives from actual travel while accounting for the reverse lever before it is aligned to the track, removing remaining orientation flips on mirrored and reverse-traversed curves.
+- Added a stable linked-consist key used by compatible switches to reserve one route for the whole train.
+
+Compatibility
+
+- Peterwolf's RailRoad's One 0.3.10 uses the consist key to hold a switch route until the last wagon clears and sends authoritative guided interpolation samples for curves and switches.
+
+Target: Minecraft 26.2, Fabric Loader 0.19.3, Fabric API 0.153.0+26.2, Java 25.

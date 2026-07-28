@@ -7,6 +7,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 
 public class MinecartLocomotiveMenu extends AbstractContainerMenu {
@@ -34,12 +35,21 @@ public class MinecartLocomotiveMenu extends AbstractContainerMenu {
 		final MinecartFurnace furnace,
 		final ContainerData data
 	) {
-		super(MinecartChainMod.LOCOMOTIVE_MENU, containerId);
+		super(resolveMenuType(), containerId);
 		checkContainerDataCount(data, DATA_COUNT);
 		this.furnace = furnace;
 		this.data = data;
 		this.addStandardInventorySlots(inventory, 8, 84);
 		this.addDataSlots(data);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static MenuType<MinecartLocomotiveMenu> resolveMenuType() {
+		Object menu = MinecartChainMod.LOCOMOTIVE_MENU;
+		if (menu instanceof java.util.function.Supplier<?> supplier) {
+			return (MenuType<MinecartLocomotiveMenu>) supplier.get();
+		}
+		return (MenuType<MinecartLocomotiveMenu>) menu;
 	}
 
 	@Override

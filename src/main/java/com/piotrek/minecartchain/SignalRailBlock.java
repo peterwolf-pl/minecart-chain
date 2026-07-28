@@ -131,6 +131,10 @@ public class SignalRailBlock extends PoweredRailBlock {
 				pitch = brake ? 0.5F : 0.6F;
 			}
 			case REVERSE -> {
+				if (!MinecartTrainLogic.isTrainStopped(locomotive)) {
+					return;
+				}
+
 				boolean reversed = !data.minecartChain$isReversed();
 				data.minecartChain$setReversed(reversed);
 				MinecartTrainLogic.snapLocomotiveYaw(locomotive, MinecartTrainLogic.drivingDirection(locomotive));
@@ -157,6 +161,10 @@ public class SignalRailBlock extends PoweredRailBlock {
 				iterator.remove();
 			}
 		}
+	}
+
+	static void clearRuntimeState() {
+		ACTIVATIONS.clear();
 	}
 
 	private record ActivationKey(GlobalPos railPos, UUID locomotiveId) {

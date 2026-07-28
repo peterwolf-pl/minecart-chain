@@ -1,8 +1,10 @@
 package com.piotrek.minecartchain;
 
 import java.util.function.Function;
-import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -37,7 +39,15 @@ public class MinecartChainMod implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		registerCreativeTabs();
-		MinecartLinkHandler.register();
+		net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(MinecartLinkHandler::handleInteraction);
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+			MinecartLinkHandler.clearSelection(handler.getPlayer().getUUID())
+		);
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			MinecartLinkHandler.clearRuntimeState();
+			MinecartTrainLogic.clearRuntimeState();
+			SignalRailBlock.clearRuntimeState();
+		});
 		LOGGER.info("Registered minecart chain interactions");
 	}
 
