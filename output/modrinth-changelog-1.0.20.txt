@@ -1,0 +1,7 @@
+1.0.20
+
+- Fixed Signal Rail reverse cooldown locking the rail when the train was still moving
+- Fixed furnace minecart riding (empty-hand no longer always opens the GUI)
+- Open locomotive screen with sneak + empty hand
+- Clear stale chain links when a cart is destroyed
+- Refund / drop iron chains on unlink, snap, and destroy
