@@ -70,6 +70,10 @@ public final class MinecartTrainLogic {
 			return;
 		}
 
+		// Only prune links when the partner is loaded but no longer reciprocal.
+		// Missing entities stay as UUID links so unloaded chunk partners reconnect.
+		pruneBrokenLinks(serverLevel, minecart);
+
 		MinecartChainAccess data = (MinecartChainAccess) minecart;
 		Optional<UUID> firstLink = data.minecartChain$getFirstLink();
 		Optional<UUID> secondLink = data.minecartChain$getSecondLink();
@@ -83,6 +87,37 @@ public final class MinecartTrainLogic {
 			}
 		}
 		guidePoweredTrainAfterLinkedCartTick(serverLevel, minecart);
+	}
+
+	private static void pruneBrokenLinks(final ServerLevel level, final AbstractMinecart minecart) {
+		MinecartChainAccess data = (MinecartChainAccess) minecart;
+		pruneBrokenLink(level, minecart, data, data.minecartChain$getFirstLink());
+		pruneBrokenLink(level, minecart, data, data.minecartChain$getSecondLink());
+	}
+
+	private static void pruneBrokenLink(
+		final ServerLevel level,
+		final AbstractMinecart minecart,
+		final MinecartChainAccess data,
+		final Optional<UUID> linkId
+	) {
+		if (linkId.isEmpty()) {
+			return;
+		}
+
+		UUID id = linkId.get();
+		Entity linkedEntity = level.getEntity(id);
+		if (linkedEntity == null) {
+			// Partner is unloaded or already gone; keep the UUID so chunk reloads reconnect.
+			return;
+		}
+		if (!(linkedEntity instanceof AbstractMinecart linkedMinecart) || linkedMinecart.isRemoved()) {
+			data.minecartChain$removeLink(id);
+			return;
+		}
+		if (!((MinecartChainAccess) linkedMinecart).minecartChain$hasLink(minecart.getUUID())) {
+			data.minecartChain$removeLink(id);
+		}
 	}
 
 	public static Vec3 engineDirection(final MinecartFurnace furnace) {

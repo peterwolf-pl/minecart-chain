@@ -7,7 +7,9 @@ import java.util.UUID;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
 import net.minecraft.world.level.storage.ValueInput;
@@ -75,6 +77,36 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void minecartChain$tick(final CallbackInfo ci) {
 		MinecartTrainLogic.tickLinks((AbstractMinecart) (Object) this);
+	}
+
+	/**
+	 * When a cart is destroyed (not merely unloaded), drop partner links so the
+	 * remaining carts do not keep dead UUID slots that block new chains.
+	 * Chunk unload / dimension change keeps NBT links intact.
+	 */
+	@Inject(method = "setRemoved", at = @At("HEAD"))
+	private void minecartChain$clearLinksOnDestroy(final Entity.RemovalReason reason, final CallbackInfo ci) {
+		if (!reason.shouldDestroy()) {
+			return;
+		}
+
+		AbstractMinecart self = (AbstractMinecart) (Object) this;
+		if (self.level().isClientSide() || !(self.level() instanceof ServerLevel serverLevel)) {
+			return;
+		}
+
+		MinecartChainAccess data = this;
+		this.minecartChain$getFirstLink().ifPresent(linkId -> this.minecartChain$notifyPartnerUnlink(serverLevel, self, linkId));
+		this.minecartChain$getSecondLink().ifPresent(linkId -> this.minecartChain$notifyPartnerUnlink(serverLevel, self, linkId));
+		data.minecartChain$clearLinks();
+	}
+
+	@Unique
+	private void minecartChain$notifyPartnerUnlink(final ServerLevel level, final AbstractMinecart self, final UUID linkId) {
+		Entity linkedEntity = level.getEntity(linkId);
+		if (linkedEntity instanceof AbstractMinecart linkedMinecart) {
+			((MinecartChainAccess) linkedMinecart).minecartChain$removeLink(self.getUUID());
+		}
 	}
 
 	@Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
