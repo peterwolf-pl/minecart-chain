@@ -82,6 +82,14 @@ Redstone Torch
 Lever
 
 
+## Locomotive Interaction
+- **Ride** a furnace minecart with an empty hand (vanilla click).
+- **Mount controls** by right-clicking a furnace minecart with a Lever (or by chaining it into a train).
+- **Toggle controls** by clicking the red / navy / black lever panels on the locomotive.
+- **Open fuel/water screen**: sneak + empty hand on a locomotive with mounted controls.
+- **Fuel / water**: right-click with furnace fuels or a water bucket.
+- **Unlink**: sneak + Iron Chain on a linked cart (returns chains).
+
 ## Lean Out of the Wagon
 Improve visibility while riding inside a minecart.
 Controls:
@@ -102,8 +110,15 @@ Long-distance railway routes
 More realistic Minecraft train networks
 
 
+## Compatibility
 
+| Component | Version |
+|-----------|---------|
+| Minecraft | 26.2 |
+| Fabric Loader | 0.19.3+ |
+| Fabric API | 0.153.0+26.2 |
+| Java | 25+ |
+| Mod | 1.0.20 |
 
-CONFIG:
+Optional: [Splinecart](https://modrinth.com/mod/splinecart) for mounted-track trains.
 
-minecraft_version=26.1.2, Loader 0.19.3, Fabric API 0.150.0+26.1.2, Java 25, mod 1.0.8. 
