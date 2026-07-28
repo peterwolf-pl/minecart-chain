@@ -118,7 +118,7 @@ More realistic Minecraft train networks
 | Fabric Loader | 0.19.3+ |
 | Fabric API | 0.153.0+26.2 |
 | Java | 25+ |
-| Mod | 1.0.20 |
+| Mod | 1.0.21 |
 
 Optional: [Splinecart](https://modrinth.com/mod/splinecart) for mounted-track trains.
 

@@ -85,12 +85,17 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 	}
 
 	/**
-	 * When a cart is destroyed (not merely unloaded), drop partner links so the
-	 * remaining carts do not keep dead UUID slots that block new chains.
-	 * Chunk unload / dimension change keeps NBT links intact.
+	 * Soft-implements {@link Entity#onRemoval} for minecarts only.
+	 * {@code setRemoved} is final on {@link Entity} and is not present on the
+	 * {@link AbstractMinecart} class file, so an {@code @Inject} into
+	 * {@code setRemoved} crashes mixin apply. {@code Entity#setRemoved} still
+	 * calls {@code onRemoval}, which is empty in vanilla.
+	 *
+	 * <p>When a cart is destroyed (not merely unloaded), drop partner links so
+	 * remaining carts do not keep dead UUID slots. Chunk unload / dimension
+	 * change keeps NBT links intact via {@link Entity.RemovalReason#shouldDestroy()}.
 	 */
-	@Inject(method = "setRemoved", at = @At("HEAD"))
-	private void minecartChain$clearLinksOnDestroy(final Entity.RemovalReason reason, final CallbackInfo ci) {
+	public void onRemoval(final Entity.RemovalReason reason) {
 		if (!reason.shouldDestroy()) {
 			return;
 		}
