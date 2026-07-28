@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.21
+
+### Fixes
+- **Crash on bootstrap** — fixed invalid mixin inject into `Entity.setRemoved` (method is not on `AbstractMinecart`). Link cleanup now soft-implements `onRemoval` instead.
+
 ## 1.0.20
 
 ### Fixes
