@@ -65,25 +65,37 @@ public final class MinecartLinkHandler {
 				return InteractionResult.SUCCESS;
 			}
 
-			if (canUseControls(furnace, stack)) {
-				MinecartControlLayout.Control control = MinecartControlLayout.hitControl(furnace, player, hitResult);
-				if (((MinecartChainAccess) furnace).minecartChain$hasEngineLever() && control == MinecartControlLayout.Control.NONE) {
-					if (!level.isClientSide()) {
-						openLocomotiveMenu(player, furnace);
-					}
-					return InteractionResult.SUCCESS;
-				}
+			MinecartChainAccess data = (MinecartChainAccess) furnace;
+			boolean hasLever = data.minecartChain$hasEngineLever();
+			boolean holdingLever = stack.getItem() == Items.LEVER;
+			MinecartControlLayout.Control control = MinecartControlLayout.hitControl(furnace, player, hitResult);
 
+			// Mount controls by right-clicking with a lever.
+			if (holdingLever && !hasLever) {
 				if (!level.isClientSide()) {
 					handleControlUse(player, level, furnace, stack, control);
 				}
 				return InteractionResult.SUCCESS;
 			}
 
-			if (!level.isClientSide()) {
-				openLocomotiveMenu(player, furnace);
+			// Toggle a control panel when the ray hits one.
+			if (hasLever && control != MinecartControlLayout.Control.NONE) {
+				if (!level.isClientSide()) {
+					handleControlUse(player, level, furnace, stack, control);
+				}
+				return InteractionResult.SUCCESS;
 			}
-			return InteractionResult.SUCCESS;
+
+			// Sneak + empty hand opens the locomotive screen without blocking ride.
+			if (hasLever && stack.isEmpty() && player.isSecondaryUseActive()) {
+				if (!level.isClientSide()) {
+					openLocomotiveMenu(player, furnace);
+				}
+				return InteractionResult.SUCCESS;
+			}
+
+			// Empty hand / other items: pass through so players can still ride.
+			return InteractionResult.PASS;
 		}
 
 		return InteractionResult.PASS;
@@ -98,10 +110,6 @@ public final class MinecartLinkHandler {
 			(containerId, inventory, ignored) -> new MinecartLocomotiveMenu(containerId, inventory, furnace),
 			Component.translatable("container.minecart_chain.locomotive")
 		));
-	}
-
-	private static boolean canUseControls(final AbstractMinecart minecart, final ItemStack stack) {
-		return stack.getItem() == Items.LEVER || ((MinecartChainAccess) minecart).minecartChain$hasEngineLever();
 	}
 
 	private static void handleFuelUse(
