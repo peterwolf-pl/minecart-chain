@@ -337,6 +337,7 @@ public final class MinecartLinkHandler {
 			return;
 		}
 
+		int refundedChains = links.size();
 		for (UUID linkId : links) {
 			Entity linkedEntity = level.getEntity(linkId);
 			if (linkedEntity instanceof AbstractMinecart linkedMinecart) {
@@ -345,8 +346,14 @@ public final class MinecartLinkHandler {
 		}
 		data.minecartChain$clearLinks();
 		SELECTED_CARTS.remove(player.getUUID());
+		if (!player.hasInfiniteMaterials() && refundedChains > 0) {
+			ItemStack refund = new ItemStack(Items.IRON_CHAIN, refundedChains);
+			if (!player.getInventory().add(refund)) {
+				player.drop(refund, false);
+			}
+		}
 		play(level, minecart, SoundEvents.CHAIN_BREAK, 1.0F, 0.9F);
-		send(player, "Removed this minecart's chain links.");
+		send(player, "Removed this minecart's chain links. Returned " + refundedChains + " iron chain(s).");
 	}
 
 	private static List<UUID> linkedIds(final MinecartChainAccess data) {

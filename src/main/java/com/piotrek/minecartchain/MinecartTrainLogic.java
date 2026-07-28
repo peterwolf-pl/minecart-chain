@@ -12,10 +12,15 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseRailBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -655,6 +660,7 @@ public final class MinecartTrainLogic {
 		if (distance > LINK_BREAK_DISTANCE) {
 			((MinecartChainAccess) first).minecartChain$removeLink(second.getUUID());
 			((MinecartChainAccess) second).minecartChain$removeLink(first.getUUID());
+			dropBrokenChain(first, second);
 			return;
 		}
 
@@ -690,6 +696,21 @@ public final class MinecartTrainLogic {
 		Vec3 secondAdjustment = constrainToRail(second, adjustment.reverse()).scale(linkWeight(second));
 		addHorizontalMovement(first, firstAdjustment);
 		addHorizontalMovement(second, secondAdjustment);
+	}
+
+	private static void dropBrokenChain(final AbstractMinecart first, final AbstractMinecart second) {
+		Level level = first.level();
+		if (level.isClientSide()) {
+			return;
+		}
+
+		double x = (first.getX() + second.getX()) * 0.5D;
+		double y = (first.getY() + second.getY()) * 0.5D + 0.25D;
+		double z = (first.getZ() + second.getZ()) * 0.5D;
+		ItemEntity chain = new ItemEntity(level, x, y, z, new ItemStack(Items.IRON_CHAIN));
+		chain.setDefaultPickUpDelay();
+		level.addFreshEntity(chain);
+		level.playSound(null, x, y, z, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.0F, 0.9F);
 	}
 
 	private static void pushMinecartsApart(

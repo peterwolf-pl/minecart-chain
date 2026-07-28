@@ -8,10 +8,15 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.spongepowered.asm.mixin.Mixin;
@@ -96,9 +101,31 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 		}
 
 		MinecartChainAccess data = this;
+		int linkCount = data.minecartChain$linkCount();
 		this.minecartChain$getFirstLink().ifPresent(linkId -> this.minecartChain$notifyPartnerUnlink(serverLevel, self, linkId));
 		this.minecartChain$getSecondLink().ifPresent(linkId -> this.minecartChain$notifyPartnerUnlink(serverLevel, self, linkId));
 		data.minecartChain$clearLinks();
+		if (linkCount > 0) {
+			ItemEntity chain = new ItemEntity(
+				serverLevel,
+				self.getX(),
+				self.getY() + 0.25D,
+				self.getZ(),
+				new ItemStack(Items.IRON_CHAIN, linkCount)
+			);
+			chain.setDefaultPickUpDelay();
+			serverLevel.addFreshEntity(chain);
+			serverLevel.playSound(
+				null,
+				self.getX(),
+				self.getY(),
+				self.getZ(),
+				SoundEvents.CHAIN_BREAK,
+				SoundSource.BLOCKS,
+				1.0F,
+				0.9F
+			);
+		}
 	}
 
 	@Unique
