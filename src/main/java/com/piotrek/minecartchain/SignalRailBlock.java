@@ -110,10 +110,20 @@ public class SignalRailBlock extends PoweredRailBlock {
 		long gameTime = level.getGameTime();
 		cleanupActivations(gameTime);
 
-		ActivationKey key = new ActivationKey(GlobalPos.of(level.dimension(), pos), locomotive.getUUID());
+		// Use the shared train key so multi-loco consists share one cooldown window.
+		ActivationKey key = new ActivationKey(
+			GlobalPos.of(level.dimension(), pos),
+			MinecartTrainLogic.connectedTrainKey(level, locomotive)
+		);
 		Long previousTick = ACTIVATIONS.get(key);
-		ACTIVATIONS.put(key, gameTime);
 		if (previousTick != null && gameTime - previousTick < SAME_TRAIN_REPEAT_DELAY_TICKS) {
+			return;
+		}
+
+		// Reverse only works while the train is stopped. Do not arm the cooldown
+		// until the lever actually toggles, otherwise a moving pass locks the rail
+		// for ~5s and the train cannot reverse once it does stop.
+		if (mode == SignalMode.REVERSE && !MinecartTrainLogic.isTrainStopped(locomotive)) {
 			return;
 		}
 
@@ -131,10 +141,6 @@ public class SignalRailBlock extends PoweredRailBlock {
 				pitch = brake ? 0.5F : 0.6F;
 			}
 			case REVERSE -> {
-				if (!MinecartTrainLogic.isTrainStopped(locomotive)) {
-					return;
-				}
-
 				boolean reversed = !data.minecartChain$isReversed();
 				data.minecartChain$setReversed(reversed);
 				MinecartTrainLogic.snapLocomotiveYaw(locomotive, MinecartTrainLogic.drivingDirection(locomotive));
@@ -142,6 +148,7 @@ public class SignalRailBlock extends PoweredRailBlock {
 			}
 		}
 
+		ACTIVATIONS.put(key, gameTime);
 		level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.9F, pitch);
 	}
 
