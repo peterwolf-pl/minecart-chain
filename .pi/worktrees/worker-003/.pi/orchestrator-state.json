@@ -1,0 +1,69 @@
+{
+  "enabled": true,
+  "taskCounter": 0,
+  "masterStatus": "idle",
+  "masterActivity": "Session closed",
+  "functionUsage": [
+    [
+      "master_reasoning",
+      {
+        "functionName": "master_reasoning",
+        "callsCount": 69,
+        "inputTokens": 902934,
+        "outputTokens": 34840,
+        "totalTokens": 937774,
+        "lastCalledAt": 1790288214225
+      }
+    ],
+    [
+      "read",
+      {
+        "functionName": "read",
+        "callsCount": 15,
+        "inputTokens": 2250,
+        "outputTokens": 31481,
+        "totalTokens": 33731,
+        "lastCalledAt": 1790288109425
+      }
+    ],
+    [
+      "bash",
+      {
+        "functionName": "bash",
+        "callsCount": 52,
+        "inputTokens": 7800,
+        "outputTokens": 94181,
+        "totalTokens": 101981,
+        "lastCalledAt": 1790288220829
+      }
+    ],
+    [
+      "write",
+      {
+        "functionName": "write",
+        "callsCount": 2,
+        "inputTokens": 300,
+        "outputTokens": 160,
+        "totalTokens": 460,
+        "lastCalledAt": 1790288168254
+      }
+    ]
+  ],
+  "lastUpdated": 1790288225007,
+  "tasks": [],
+  "workerStatuses": [
+    {
+      "id": "google-antigravity-4",
+      "status": "idle"
+    },
+    {
+      "id": "antigravity",
+      "status": "idle"
+    },
+    {
+      "id": "google-antigravity-3",
+      "status": "idle"
+    }
+  ],
+  "runningProcesses": []
+}

@@ -42,6 +42,34 @@ public interface MinecartChainAccess {
 
 	void minecartChain$setWaterTicks(int waterTicks);
 
+	boolean minecartChain$isRadioLocomotive();
+
+	void minecartChain$setRadioLocomotive(boolean radio);
+
+	int minecartChain$getThrottleChannel();
+
+	void minecartChain$setThrottleChannel(int channel);
+
+	int minecartChain$getReverseChannel();
+
+	void minecartChain$setReverseChannel(int channel);
+
+	int minecartChain$getReceivedThrottlePower();
+
+	void minecartChain$setReceivedThrottlePower(int power);
+
+	int minecartChain$getReceivedReversePower();
+
+	void minecartChain$setReceivedReversePower(int power);
+
+	boolean minecartChain$isReversePending();
+
+	void minecartChain$setReversePending(boolean pending);
+
+	boolean minecartChain$isArmed();
+
+	void minecartChain$setArmed(boolean armed);
+
 	default int minecartChain$addWaterTicks(final int waterTicks, final int maxWaterTicks) {
 		int currentWater = this.minecartChain$getWaterTicks();
 		int acceptedWater = Math.min(Math.max(0, waterTicks), Math.max(0, maxWaterTicks - currentWater));

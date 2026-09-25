@@ -4,11 +4,14 @@
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
 		"AbstractMinecartMixin",
-		"MinecartFurnaceMixin"
+		"MinecartFurnaceMixin",
+		"NewMinecartBehaviorMixin"
 	],
 	"client": [
 		"client.AbstractMinecartRendererMixin",
 		"client.CameraMixin",
+		"client.EntityRenderDispatcherMixin",
+		"client.LocalPlayerMinecartLookMixin",
 		"client.MinecartRenderStateMixin"
 	],
 	"injectors": {

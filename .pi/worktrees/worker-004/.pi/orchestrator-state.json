@@ -1,0 +1,80 @@
+{
+  "enabled": true,
+  "taskCounter": 0,
+  "masterStatus": "idle",
+  "masterActivity": "Session closed",
+  "functionUsage": [
+    [
+      "master_reasoning",
+      {
+        "functionName": "master_reasoning",
+        "callsCount": 77,
+        "inputTokens": 6845437,
+        "outputTokens": 7362,
+        "totalTokens": 6852799,
+        "lastCalledAt": 1790288230972
+      }
+    ],
+    [
+      "read",
+      {
+        "functionName": "read",
+        "callsCount": 11,
+        "inputTokens": 1650,
+        "outputTokens": 14866,
+        "totalTokens": 16516,
+        "lastCalledAt": 1790288166201
+      }
+    ],
+    [
+      "bash",
+      {
+        "functionName": "bash",
+        "callsCount": 60,
+        "inputTokens": 9000,
+        "outputTokens": 136659,
+        "totalTokens": 145659,
+        "lastCalledAt": 1790288230986
+      }
+    ],
+    [
+      "check_worker_task",
+      {
+        "functionName": "check_worker_task",
+        "callsCount": 1,
+        "inputTokens": 150,
+        "outputTokens": 80,
+        "totalTokens": 230,
+        "lastCalledAt": 1790288025016
+      }
+    ],
+    [
+      "edit",
+      {
+        "functionName": "edit",
+        "callsCount": 5,
+        "inputTokens": 750,
+        "outputTokens": 6169,
+        "totalTokens": 6919,
+        "lastCalledAt": 1790288212145
+      }
+    ]
+  ],
+  "lastUpdated": 1790288231101,
+  "tasks": [],
+  "workerStatuses": [
+    {
+      "id": "google-antigravity-4",
+      "status": "idle"
+    },
+    {
+      "id": "antigravity",
+      "status": "idle"
+    },
+    {
+      "id": "google-antigravity-3",
+      "status": "idle"
+    }
+  ],
+  "runningProcesses": []
+}

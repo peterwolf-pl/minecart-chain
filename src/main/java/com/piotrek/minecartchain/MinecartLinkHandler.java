@@ -23,6 +23,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.util.Prediction;
 
 public final class MinecartLinkHandler {
 	private static final double MAX_LINK_DISTANCE = 2.0D;
@@ -51,6 +52,47 @@ public final class MinecartLinkHandler {
 		}
 
 		if (minecart instanceof MinecartFurnace furnace) {
+			MinecartChainAccess data = (MinecartChainAccess) furnace;
+
+			if (!data.minecartChain$isRadioLocomotive() && RadioLocomotiveCompat.isReceiverItem(stack)) {
+				if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
+					data.minecartChain$setRadioLocomotive(true);
+					data.minecartChain$setEngineLever(true);
+					data.minecartChain$setEngineActive(false);
+					data.minecartChain$setThrottleChannel(0);
+					data.minecartChain$setReverseChannel(1);
+					data.minecartChain$setArmed(false); // Safety lockout: must see 50% stop/neutral before driving!
+					MinecartTrainLogic.snapLocomotiveYaw(furnace, MinecartTrainLogic.engineDirection(furnace));
+					if (!player.hasInfiniteMaterials()) {
+						stack.shrink(1);
+					}
+					play(level, furnace, SoundEvents.ARMOR_EQUIP_IRON.value(), 1.0F, 1.0F);
+					send(serverPlayer, "Installed receiver module. Radio locomotive ready.");
+				}
+				return InteractionResult.SUCCESS;
+			}
+
+			if (data.minecartChain$isRadioLocomotive()) {
+				if (stack.getItem() == Items.WATER_BUCKET) {
+					if (!level.isClientSide()) {
+						handleWaterUse(player, level, hand, furnace, stack);
+					}
+					return InteractionResult.SUCCESS;
+				}
+
+				if (MinecartLocomotiveResources.isCookingFuel(stack)) {
+					if (!level.isClientSide()) {
+						handleFuelUse(player, level, hand, furnace, stack);
+					}
+					return InteractionResult.SUCCESS;
+				}
+
+				if (!level.isClientSide()) {
+					openRadioLocomotiveMenu(player, furnace);
+				}
+				return InteractionResult.SUCCESS;
+			}
+
 			if (stack.getItem() == Items.WATER_BUCKET) {
 				if (!level.isClientSide()) {
 					handleWaterUse(player, level, hand, furnace, stack);
@@ -58,14 +100,13 @@ public final class MinecartLinkHandler {
 				return InteractionResult.SUCCESS;
 			}
 
-			if (level.fuelValues().isFuel(stack)) {
+			if (MinecartLocomotiveResources.isCookingFuel(stack)) {
 				if (!level.isClientSide()) {
 					handleFuelUse(player, level, hand, furnace, stack);
 				}
 				return InteractionResult.SUCCESS;
 			}
 
-			MinecartChainAccess data = (MinecartChainAccess) furnace;
 			boolean hasLever = data.minecartChain$hasEngineLever();
 			boolean holdingLever = stack.getItem() == Items.LEVER;
 			MinecartControlLayout.Control control = MinecartControlLayout.hitControl(furnace, player, hitResult);
@@ -109,6 +150,17 @@ public final class MinecartLinkHandler {
 		serverPlayer.openMenu(new SimpleMenuProvider(
 			(containerId, inventory, ignored) -> new MinecartLocomotiveMenu(containerId, inventory, furnace),
 			Component.translatable("container.minecart_chain.locomotive")
+		));
+	}
+
+	private static void openRadioLocomotiveMenu(final Player player, final MinecartFurnace furnace) {
+		if (!(player instanceof ServerPlayer serverPlayer)) {
+			return;
+		}
+
+		serverPlayer.openMenu(new SimpleMenuProvider(
+			(containerId, inventory, ignored) -> new RadioLocomotiveMenu(containerId, inventory, furnace),
+			Component.translatable("container.minecart_chain.radio_locomotive")
 		));
 	}
 
@@ -267,7 +319,7 @@ public final class MinecartLinkHandler {
 		data.minecartChain$setEngineActive(true);
 		data.minecartChain$setFullThrottle(false);
 		data.minecartChain$setReversed(false);
-		MinecartTrainLogic.snapLocomotiveYaw(furnace, MinecartTrainLogic.drivingDirection(furnace));
+		MinecartTrainLogic.snapLocomotiveYaw(furnace, MinecartTrainLogic.engineDirection(furnace));
 		play(level, minecart, SoundEvents.LEVER_CLICK, 0.9F, 0.5F);
 		return true;
 	}
@@ -289,7 +341,7 @@ public final class MinecartLinkHandler {
 			data.minecartChain$setEngineActive(true);
 			data.minecartChain$setFullThrottle(false);
 			data.minecartChain$setReversed(false);
-			MinecartTrainLogic.snapLocomotiveYaw((MinecartFurnace) minecart, MinecartTrainLogic.drivingDirection((MinecartFurnace) minecart));
+			MinecartTrainLogic.snapLocomotiveYaw((MinecartFurnace) minecart, MinecartTrainLogic.engineDirection((MinecartFurnace) minecart));
 			if (!serverPlayer.hasInfiniteMaterials()) {
 				stack.consume(1, serverPlayer);
 			}
@@ -308,7 +360,7 @@ public final class MinecartLinkHandler {
 
 			boolean reversed = !data.minecartChain$isReversed();
 			data.minecartChain$setReversed(reversed);
-			MinecartTrainLogic.snapLocomotiveYaw(furnace, MinecartTrainLogic.drivingDirection(furnace));
+			MinecartTrainLogic.snapLocomotiveYaw(furnace, MinecartTrainLogic.engineDirection(furnace));
 			play(level, minecart, SoundEvents.LEVER_CLICK, 0.9F, reversed ? 0.75F : 0.6F);
 			send(serverPlayer, reversed ? "Drive direction reversed." : "Drive direction set forward.");
 			return;
@@ -349,7 +401,7 @@ public final class MinecartLinkHandler {
 		if (!player.hasInfiniteMaterials() && refundedChains > 0) {
 			ItemStack refund = new ItemStack(Items.IRON_CHAIN, refundedChains);
 			if (!player.getInventory().add(refund)) {
-				player.drop(refund, false);
+				player.drop(refund, false, Prediction.SERVER_ONLY);
 			}
 		}
 		play(level, minecart, SoundEvents.CHAIN_BREAK, 1.0F, 0.9F);
@@ -387,7 +439,7 @@ public final class MinecartLinkHandler {
 		if (stack.isEmpty()) {
 			player.setItemInHand(hand, remainder);
 		} else if (!player.getInventory().add(remainder)) {
-			player.drop(remainder, false);
+			player.drop(remainder, false, Prediction.SERVER_ONLY);
 		}
 	}
 

@@ -27,6 +27,14 @@ public interface MinecartChainRenderState {
 
 	void minecartChain$setHasLever(boolean hasLever);
 
+	boolean minecartChain$isRadioLocomotive();
+
+	void minecartChain$setRadioLocomotive(boolean radioLocomotive);
+
+	BlockModelRenderState minecartChain$receiverModel();
+
+	BlockModelRenderState minecartChain$antennaModel();
+
 	boolean minecartChain$isFullThrottle();
 
 	void minecartChain$setFullThrottle(boolean fullThrottle);

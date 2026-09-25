@@ -51,7 +51,7 @@ public final class MinecartTrainLogic {
 	private static final double FOLLOWER_SPACING_DEADZONE = 0.08D;
 	private static final double FOLLOWER_SPACING_RECOVERY_SPEED = 0.08D;
 	private static final double FOLLOWER_LEADER_SPEED_MARGIN = 0.025D;
-	private static final double BRAKE_DAMPING = 0.28D;
+	private static final double RELEASE_START_SPEED = 0.12D;
 	private static final double POWERED_ENGINE_LINK_WEIGHT = 0.25D;
 	private static final double SMOKE_SPEED_THRESHOLD = 0.02D;
 	private static final double STOPPED_SPEED_THRESHOLD = 0.025D;
@@ -126,16 +126,34 @@ public final class MinecartTrainLogic {
 	}
 
 	public static Vec3 engineDirection(final MinecartFurnace furnace) {
+		MinecartChainAccess data = (MinecartChainAccess) furnace;
+
 		Vec3 mountedMovement = MountedTrackCompat.horizontalMovement(furnace);
 		if (MountedTrackCompat.isMounted(furnace) && mountedMovement.lengthSqr() > 1.0E-5D) {
 			Vec3 actualDirection = mountedMovement.normalize();
-			return ((MinecartChainAccess) furnace).minecartChain$isReversed() ? actualDirection.reverse() : actualDirection;
+			return data.minecartChain$isReversed() ? actualDirection.reverse() : actualDirection;
+		}
+
+		// If the locomotive already has an established heading, preserve it to prevent stopping/braking reversals
+		if (data.minecartChain$hasLocomotiveYaw()) {
+			Vec3 established = directionFromYaw(data.minecartChain$getLocomotiveYaw());
+			Vec3 movement = furnace.getDeltaMovement().horizontal();
+			// Only update heading along curves when actively moving at speed (not a stop bounce)
+			if (movement.lengthSqr() > 0.0025D) {
+				Vec3 actualDirection = movement.normalize();
+				Vec3 engineFront = data.minecartChain$isReversed() ? actualDirection.reverse() : actualDirection;
+				// If movement is roughly aligned with locomotive facing (not a rebound into the buffer)
+				if (engineFront.dot(established) > -0.2D) {
+					return alignDirectionToTrack(furnace, engineFront);
+				}
+			}
+			return alignDirectionToTrack(furnace, established);
 		}
 
 		Vec3 movement = furnace.getDeltaMovement().horizontal();
 		if (movement.lengthSqr() > 1.0E-4D) {
 			Vec3 actualDirection = movement.normalize();
-			Vec3 engineFront = ((MinecartChainAccess) furnace).minecartChain$isReversed()
+			Vec3 engineFront = data.minecartChain$isReversed()
 				? actualDirection.reverse()
 				: actualDirection;
 			return alignDirectionToTrack(furnace, engineFront);
@@ -162,12 +180,12 @@ public final class MinecartTrainLogic {
 		return ((MinecartChainAccess) furnace).minecartChain$isReversed() ? direction.reverse() : direction;
 	}
 
-	public static boolean isTrainStopped(final MinecartFurnace furnace) {
-		if (!(furnace.level() instanceof ServerLevel serverLevel)) {
-			return isStopped(furnace);
+	public static boolean isTrainStopped(final AbstractMinecart engine) {
+		if (!(engine.level() instanceof ServerLevel serverLevel)) {
+			return isStopped(engine);
 		}
 
-		for (AbstractMinecart minecart : connectedTrain(serverLevel, furnace)) {
+		for (AbstractMinecart minecart : connectedTrain(serverLevel, engine)) {
 			if (!isStopped(minecart)) {
 				return false;
 			}
@@ -232,6 +250,18 @@ public final class MinecartTrainLogic {
 		return 1 + Math.max(0, connectedTrainSize - 1) / 2;
 	}
 
+	public static boolean isExternallyGuided(final AbstractMinecart minecart) {
+		return externalTrackDirection(minecart).lengthSqr() > 1.0E-8D;
+	}
+
+	public static boolean shouldSkipVanillaPhysics(final AbstractMinecart minecart) {
+		return isExternallyGuided(minecart);
+	}
+
+	public static double couplingDistance() {
+		return LINK_DISTANCE;
+	}
+
 	/**
 	 * Lets a custom track controller expose its current path direction without
 	 * making Minecart Chain depend directly on that track mod.
@@ -259,6 +289,11 @@ public final class MinecartTrainLogic {
 			return;
 		}
 
+		// When stopped or braking to a halt, never rotate or invert the locomotive yaw!
+		if (isStopped(furnace)) {
+			return;
+		}
+
 		MinecartChainAccess data = (MinecartChainAccess) furnace;
 		float targetYaw = yawFromDirection(direction);
 		if (!data.minecartChain$hasLocomotiveYaw()) {
@@ -268,6 +303,11 @@ public final class MinecartTrainLogic {
 		}
 
 		float currentYaw = data.minecartChain$getLocomotiveYaw();
+		// Prevent sudden 180-degree yaw flips on straight/curved tracks caused by deceleration bounce
+		if (Mth.degreesDifferenceAbs(currentYaw, targetYaw) > 135.0F) {
+			return;
+		}
+
 		float nextYaw = Mth.approachDegrees(currentYaw, targetYaw, MAX_LOCOMOTIVE_YAW_STEP);
 		if (Mth.degreesDifferenceAbs(currentYaw, nextYaw) >= MIN_LOCOMOTIVE_YAW_UPDATE) {
 			data.minecartChain$setLocomotiveYaw(nextYaw);
@@ -285,15 +325,19 @@ public final class MinecartTrainLogic {
 	}
 
 	public static void applyEngineAssist(final MinecartFurnace furnace, final Vec3 direction, final boolean fullThrottle) {
+		applyEngineAssist(furnace, direction, throttleFactor(fullThrottle));
+	}
+
+	public static void applyEngineAssist(final MinecartFurnace furnace, final Vec3 direction, final double throttle) {
 		if (direction.lengthSqr() <= 1.0E-5D) {
 			return;
 		}
 
-		Vec3 horizontal = horizontalMovement(furnace).add(direction.scale(ENGINE_ASSIST * throttleFactor(fullThrottle)));
+		Vec3 horizontal = horizontalMovement(furnace).add(direction.scale(ENGINE_ASSIST * throttle));
 		double speed = horizontal.length();
-		double maxSpeed = fullThrottle ? MAX_ENGINE_SPEED : SLOW_ENGINE_SPEED;
+		double maxSpeed = MAX_ENGINE_SPEED * Math.max(SLOW_THROTTLE_FACTOR, throttle);
 		if (MountedTrackCompat.isMounted(furnace)) {
-			maxSpeed = MAX_MOUNTED_TRACK_SPEED * throttleFactor(fullThrottle);
+			maxSpeed = MAX_MOUNTED_TRACK_SPEED * Math.max(SLOW_THROTTLE_FACTOR, throttle);
 		}
 		if (speed > maxSpeed) {
 			horizontal = horizontal.normalize().scale(maxSpeed);
@@ -302,12 +346,12 @@ public final class MinecartTrainLogic {
 		setHorizontalMovement(furnace, horizontal);
 	}
 
-	public static void guidePoweredTrain(final MinecartFurnace furnace, final Vec3 engineDirection) {
-		if (!(furnace.level() instanceof ServerLevel serverLevel)) {
+	public static void guidePoweredTrain(final AbstractMinecart engine, final Vec3 engineDirection) {
+		if (!(engine.level() instanceof ServerLevel serverLevel)) {
 			return;
 		}
 
-		List<AbstractMinecart> train = orderedTrain(serverLevel, furnace);
+		List<AbstractMinecart> train = orderedTrain(serverLevel, engine);
 		if (train.size() < 2) {
 			return;
 		}
@@ -331,23 +375,49 @@ public final class MinecartTrainLogic {
 		}
 	}
 
-	public static void applyTrainBrake(final MinecartFurnace furnace) {
+	public static void applyTrainBrake(final AbstractMinecart engine) {
+		if (!(engine.level() instanceof ServerLevel serverLevel)) {
+			return;
+		}
+
+		for (AbstractMinecart minecart : orderedTrain(serverLevel, engine)) {
+			setHorizontalMovement(minecart, Vec3.ZERO);
+		}
+	}
+
+	public static void startConsistForward(final MinecartFurnace furnace) {
 		if (!(furnace.level() instanceof ServerLevel serverLevel)) {
 			return;
 		}
 
+		Vec3 direction = drivingDirection(furnace);
+		if (direction.lengthSqr() <= 1.0E-8D) {
+			return;
+		}
+
+		Vec3 unit = direction.normalize();
 		for (AbstractMinecart minecart : orderedTrain(serverLevel, furnace)) {
-			setHorizontalMovement(minecart, horizontalMovement(minecart).scale(BRAKE_DAMPING));
+			Vec3 alongRail = constrainToRail(minecart, unit);
+			if (alongRail.lengthSqr() <= 1.0E-8D) {
+				alongRail = unit;
+			} else if (alongRail.dot(unit) < 0.0D) {
+				alongRail = alongRail.reverse();
+			}
+			setHorizontalMovement(minecart, alongRail.normalize().scale(RELEASE_START_SPEED));
 		}
 	}
 
 	public static Vec3 enginePushVector(final Vec3 direction, final boolean fullThrottle) {
+		return enginePushVector(direction, throttleFactor(fullThrottle));
+	}
+
+	public static Vec3 enginePushVector(final Vec3 direction, final double throttle) {
 		if (direction.lengthSqr() <= 1.0E-5D) {
 			return Vec3.ZERO;
 		}
 
 		Vec3 normalized = direction.normalize();
-		double push = ENGINE_PUSH * throttleFactor(fullThrottle);
+		double push = ENGINE_PUSH * throttle;
 		return new Vec3(normalized.x * push, 0.0D, normalized.z * push);
 	}
 
@@ -378,12 +448,15 @@ public final class MinecartTrainLogic {
 	}
 
 	public static void emitLocomotiveSmoke(final MinecartFurnace furnace) {
+		emitLocomotiveSmoke(furnace, ((MinecartChainAccess) furnace).minecartChain$isFullThrottle() ? 1.0D : SLOW_THROTTLE_FACTOR);
+	}
+
+	public static void emitLocomotiveSmoke(final MinecartFurnace furnace, final double throttle) {
 		if (!(furnace.level() instanceof ServerLevel serverLevel)) {
 			return;
 		}
 
-		boolean fullThrottle = ((MinecartChainAccess) furnace).minecartChain$isFullThrottle();
-		int smokeInterval = fullThrottle ? FULL_THROTTLE_SMOKE_INTERVAL_TICKS : SMOKE_INTERVAL_TICKS;
+		int smokeInterval = throttle > 0.6D ? FULL_THROTTLE_SMOKE_INTERVAL_TICKS : SMOKE_INTERVAL_TICKS;
 		if (furnace.tickCount % smokeInterval != 0) {
 			return;
 		}
@@ -399,9 +472,9 @@ public final class MinecartTrainLogic {
 		Vec3 smokePos = furnace.position()
 			.add(forward.normalize().scale(MinecartControlLayout.CHIMNEY_SMOKE_FORWARD_OFFSET))
 			.add(0.0D, MinecartControlLayout.CHIMNEY_SMOKE_Y, 0.0D);
-		int darkSmokeCount = fullThrottle ? 5 : 2;
-		int whiteSmokeCount = fullThrottle ? 4 : 1;
-		double smokeSpeed = fullThrottle ? 0.025D : 0.015D;
+		int darkSmokeCount = throttle > 0.6D ? 5 : 2;
+		int whiteSmokeCount = throttle > 0.6D ? 4 : 1;
+		double smokeSpeed = throttle > 0.6D ? 0.025D : 0.015D;
 		serverLevel.sendParticles(
 			ParticleTypes.LARGE_SMOKE,
 			smokePos.x,
@@ -484,7 +557,7 @@ public final class MinecartTrainLogic {
 		}
 	}
 
-	private static List<AbstractMinecart> orderedTrain(final ServerLevel level, final AbstractMinecart engine) {
+	public static List<AbstractMinecart> orderedTrain(final ServerLevel level, final AbstractMinecart engine) {
 		List<AbstractMinecart> train = new ArrayList<>();
 		Set<UUID> seen = new HashSet<>();
 		AbstractMinecart previous = null;
@@ -541,6 +614,10 @@ public final class MinecartTrainLogic {
 	}
 
 	private static void guideFollower(final AbstractMinecart leader, final AbstractMinecart follower, final Vec3 fallbackDirection) {
+		if (isExternallyGuided(follower) || isExternallyGuided(leader)) {
+			return;
+		}
+
 		Vec3 toLeader = leader.position().subtract(follower.position()).horizontal();
 		double distance = toLeader.length();
 		if (distance <= 1.0E-4D) {
@@ -549,14 +626,16 @@ public final class MinecartTrainLogic {
 
 		Vec3 leaderVelocity = horizontalMovement(leader);
 		Vec3 localForward = leaderVelocity.lengthSqr() > 1.0E-5D ? leaderVelocity.normalize() : fallbackDirection;
-		if (distance < MIN_LINK_DISTANCE) {
+		double nominalDist = nominalLinkDistance(leader, follower);
+		double minDist = minimumLinkDistance(leader, follower);
+		if (distance < minDist) {
 			Vec3 followerVelocity = horizontalMovement(follower);
-			Vec3 railFollowerVelocity = constrainToRail(follower, followerVelocity.scale(FOLLOWER_OVERTAKE_BRAKE));
-			double push = Mth.clamp((MIN_LINK_DISTANCE - distance) * MIN_DISTANCE_PUSH, 0.04D, MAX_LINK_IMPULSE);
-			Vec3 pushAway = railPullVector(follower, toLeader.reverse(), push);
-			Vec3 corrected = keepFollowerFromClosingGap(
-				leader, follower, railFollowerVelocity.add(pushAway), toLeader, distance, fallbackDirection
-			);
+			Vec3 alongTravel = followerVelocity;
+			if (localForward.lengthSqr() > 1.0E-8D) {
+				alongTravel = localForward.scale(Math.max(0.0D, followerVelocity.dot(localForward)));
+			}
+			Vec3 corrected = constrainToRail(follower, alongTravel);
+			corrected = keepFollowerFromClosingGap(leader, follower, corrected, toLeader, distance, fallbackDirection, nominalDist);
 			corrected = capHorizontalSpeed(corrected, MAX_FOLLOWER_SPEED);
 			setHorizontalMovement(follower, corrected);
 			return;
@@ -566,7 +645,7 @@ public final class MinecartTrainLogic {
 			Vec3 slowed = constrainToRail(follower, horizontalMovement(follower).scale(FOLLOWER_OVERTAKE_BRAKE));
 			Vec3 pullBack = railPullVector(follower, toLeader, MAX_LINK_IMPULSE);
 			Vec3 corrected = keepFollowerFromClosingGap(
-				leader, follower, slowed.add(pullBack), toLeader, distance, fallbackDirection
+				leader, follower, slowed.add(pullBack), toLeader, distance, fallbackDirection, nominalDist
 			);
 			corrected = capHorizontalSpeed(corrected, MAX_FOLLOWER_SPEED);
 			setHorizontalMovement(follower, corrected);
@@ -579,14 +658,14 @@ public final class MinecartTrainLogic {
 		Vec3 blendedVelocity = railFollowerVelocity.scale(1.0D - FOLLOWER_VELOCITY_BLEND)
 			.add(railLeaderVelocity.scale(FOLLOWER_VELOCITY_BLEND));
 
-		if (distance > LINK_DISTANCE) {
-			double pull = Mth.clamp((distance - LINK_DISTANCE) * FOLLOWER_PULL, 0.0D, MAX_LINK_IMPULSE);
+		if (distance > nominalDist) {
+			double pull = Mth.clamp((distance - nominalDist) * FOLLOWER_PULL, 0.0D, MAX_LINK_IMPULSE);
 			blendedVelocity = blendedVelocity.add(railPullVector(follower, toLeader, pull));
 		}
 
 		blendedVelocity = constrainToRail(follower, blendedVelocity);
 		blendedVelocity = keepFollowerFromClosingGap(
-			leader, follower, blendedVelocity, toLeader, distance, fallbackDirection
+			leader, follower, blendedVelocity, toLeader, distance, fallbackDirection, nominalDist
 		);
 		blendedVelocity = capHorizontalSpeed(blendedVelocity, MAX_FOLLOWER_SPEED);
 		setHorizontalMovement(follower, blendedVelocity);
@@ -598,9 +677,10 @@ public final class MinecartTrainLogic {
 		final Vec3 candidateVelocity,
 		final Vec3 toLeader,
 		final double distance,
-		final Vec3 fallbackDirection
+		final Vec3 fallbackDirection,
+		final double targetDistance
 	) {
-		if (distance > LINK_DISTANCE + FOLLOWER_SPACING_DEADZONE || toLeader.lengthSqr() <= 1.0E-8D) {
+		if (distance > targetDistance + FOLLOWER_SPACING_DEADZONE || toLeader.lengthSqr() <= 1.0E-8D) {
 			return candidateVelocity;
 		}
 
@@ -609,9 +689,9 @@ public final class MinecartTrainLogic {
 		double leaderTowardGap = leaderVelocity.dot(gapDirection);
 		double followerTowardLeader = candidateVelocity.horizontal().dot(gapDirection);
 		double maxFollowerTowardLeader = leaderTowardGap - FOLLOWER_LEADER_SPEED_MARGIN;
-		if (distance < LINK_DISTANCE) {
+		if (distance < targetDistance) {
 			maxFollowerTowardLeader -= Mth.clamp(
-				(LINK_DISTANCE - distance) * MIN_DISTANCE_PUSH,
+				(targetDistance - distance) * MIN_DISTANCE_PUSH,
 				0.0D,
 				FOLLOWER_SPACING_RECOVERY_SPEED
 			);
@@ -657,26 +737,33 @@ public final class MinecartTrainLogic {
 			return;
 		}
 
-		if (distance > LINK_BREAK_DISTANCE) {
+		if (isExternallyGuided(first) || isExternallyGuided(second)) {
+			return;
+		}
+
+		if (distance > linkBreakDistance(first, second)) {
 			((MinecartChainAccess) first).minecartChain$removeLink(second.getUUID());
 			((MinecartChainAccess) second).minecartChain$removeLink(first.getUUID());
 			dropBrokenChain(first, second);
 			return;
 		}
 
-		Vec3 direction = delta.scale(1.0D / distance);
+		double nominalDistance = nominalLinkDistance(first, second);
+		double maxLinkDistance = maximumLinkDistance(first, second);
 		double minimumDistance = minimumLinkDistance(first, second);
+
+		Vec3 direction = delta.scale(1.0D / distance);
 		if (distance < minimumDistance) {
 			pushMinecartsApart(first, second, direction, distance, minimumDistance);
 			return;
 		}
 
-		if (distance > MAX_LINK_DISTANCE) {
-			clampLinkDistance(first, second, direction, distance);
+		if (distance > maxLinkDistance) {
+			clampLinkDistance(first, second, direction, distance, maxLinkDistance);
 			return;
 		}
 
-		double error = distance - LINK_DISTANCE;
+		double error = distance - nominalDistance;
 		if (error <= 0.04D) {
 			return;
 		}
@@ -692,10 +779,12 @@ public final class MinecartTrainLogic {
 			return;
 		}
 		Vec3 adjustment = direction.scale(impulse);
-		Vec3 firstAdjustment = constrainToRail(first, adjustment).scale(linkWeight(first));
-		Vec3 secondAdjustment = constrainToRail(second, adjustment.reverse()).scale(linkWeight(second));
-		addHorizontalMovement(first, firstAdjustment);
-		addHorizontalMovement(second, secondAdjustment);
+		if (!isEngineLocomotive(first)) {
+			addHorizontalMovement(first, constrainToRail(first, adjustment).scale(linkWeight(first)));
+		}
+		if (!isEngineLocomotive(second)) {
+			addHorizontalMovement(second, constrainToRail(second, adjustment.reverse()).scale(linkWeight(second)));
+		}
 	}
 
 	private static void dropBrokenChain(final AbstractMinecart first, final AbstractMinecart second) {
@@ -722,26 +811,40 @@ public final class MinecartTrainLogic {
 	) {
 		double deficit = minimumDistance - distance;
 		Vec3 correction = direction.scale(deficit * 0.5D);
-		Vec3 firstCorrection = constrainToRail(first, correction.reverse());
-		Vec3 secondCorrection = constrainToRail(second, correction);
-		moveIfNotMounted(first, firstCorrection);
-		moveIfNotMounted(second, secondCorrection);
+		if (!isEngineLocomotive(first)) {
+			moveIfNotMounted(first, constrainToRail(first, correction.reverse()));
+		}
+		if (!isEngineLocomotive(second)) {
+			moveIfNotMounted(second, constrainToRail(second, correction));
+		}
 
 		double impulseLimit = linkImpulseLimit(first, second);
 		double minimumImpulse = impulseLimit == MAX_GUIDED_LINK_IMPULSE ? 0.01D : 0.04D;
 		double impulse = Mth.clamp(deficit * MIN_DISTANCE_PUSH, minimumImpulse, impulseLimit);
 		Vec3 push = direction.scale(impulse);
-		addHorizontalMovement(first, constrainToRail(first, push.reverse()));
-		addHorizontalMovement(second, constrainToRail(second, push));
+		if (!isEngineLocomotive(first)) {
+			addHorizontalMovement(first, constrainToRail(first, push.reverse()));
+		}
+		if (!isEngineLocomotive(second)) {
+			addHorizontalMovement(second, constrainToRail(second, push));
+		}
 	}
 
-	private static void clampLinkDistance(final AbstractMinecart first, final AbstractMinecart second, final Vec3 direction, final double distance) {
-		double excess = distance - MAX_LINK_DISTANCE;
+	private static void clampLinkDistance(
+		final AbstractMinecart first,
+		final AbstractMinecart second,
+		final Vec3 direction,
+		final double distance,
+		final double maxDistance
+	) {
+		double excess = distance - maxDistance;
 		Vec3 correction = direction.scale(excess * 0.5D);
-		Vec3 firstCorrection = constrainToRail(first, correction);
-		Vec3 secondCorrection = constrainToRail(second, correction.reverse());
-		moveIfNotMounted(first, firstCorrection);
-		moveIfNotMounted(second, secondCorrection);
+		if (!isEngineLocomotive(first)) {
+			moveIfNotMounted(first, constrainToRail(first, correction));
+		}
+		if (!isEngineLocomotive(second)) {
+			moveIfNotMounted(second, constrainToRail(second, correction.reverse()));
+		}
 
 		double separationSpeed = horizontalMovement(second).subtract(horizontalMovement(first)).horizontal().dot(direction);
 		double pull = Mth.clamp(
@@ -750,8 +853,12 @@ public final class MinecartTrainLogic {
 			linkImpulseLimit(first, second)
 		);
 		Vec3 damping = direction.scale(pull);
-		addHorizontalMovement(first, constrainToRail(first, damping).scale(linkWeight(first)));
-		addHorizontalMovement(second, constrainToRail(second, damping.reverse()).scale(linkWeight(second)));
+		if (!isEngineLocomotive(first)) {
+			addHorizontalMovement(first, constrainToRail(first, damping).scale(linkWeight(first)));
+		}
+		if (!isEngineLocomotive(second)) {
+			addHorizontalMovement(second, constrainToRail(second, damping.reverse()).scale(linkWeight(second)));
+		}
 	}
 
 	private static double linkImpulseLimit(final AbstractMinecart first, final AbstractMinecart second) {
@@ -761,11 +868,29 @@ public final class MinecartTrainLogic {
 			: MAX_LINK_IMPULSE;
 	}
 
+	private static boolean hasSteamLocomotive(final AbstractMinecart first, final AbstractMinecart second) {
+		return first instanceof SteamLocomotiveEntity || second instanceof SteamLocomotiveEntity;
+	}
+
+	private static double nominalLinkDistance(final AbstractMinecart first, final AbstractMinecart second) {
+		return hasSteamLocomotive(first, second) ? 2.50D : LINK_DISTANCE;
+	}
+
+	private static double maximumLinkDistance(final AbstractMinecart first, final AbstractMinecart second) {
+		return hasSteamLocomotive(first, second) ? 2.75D : MAX_LINK_DISTANCE;
+	}
+
+	private static double linkBreakDistance(final AbstractMinecart first, final AbstractMinecart second) {
+		return hasSteamLocomotive(first, second) ? 4.5D : LINK_BREAK_DISTANCE;
+	}
+
 	private static double minimumLinkDistance(final AbstractMinecart first, final AbstractMinecart second) {
-		return externalTrackDirection(first).lengthSqr() > 1.0E-8D
-			|| externalTrackDirection(second).lengthSqr() > 1.0E-8D
-			? MIN_GUIDED_LINK_DISTANCE
-			: MIN_LINK_DISTANCE;
+		boolean guided = externalTrackDirection(first).lengthSqr() > 1.0E-8D
+			|| externalTrackDirection(second).lengthSqr() > 1.0E-8D;
+		if (hasSteamLocomotive(first, second)) {
+			return guided ? 1.85D : 2.10D;
+		}
+		return guided ? MIN_GUIDED_LINK_DISTANCE : MIN_LINK_DISTANCE;
 	}
 
 	private static Vec3 railPullVector(final AbstractMinecart minecart, final Vec3 desiredDirection, final double magnitude) {
@@ -825,11 +950,11 @@ public final class MinecartTrainLogic {
 		return new Vec3(horizontal.x, vector.y, horizontal.z);
 	}
 
-	private static Vec3 horizontalMovement(final AbstractMinecart minecart) {
+	public static Vec3 horizontalMovement(final AbstractMinecart minecart) {
 		return MountedTrackCompat.horizontalMovement(minecart);
 	}
 
-	private static void setHorizontalMovement(final AbstractMinecart minecart, final Vec3 movement) {
+	public static void setHorizontalMovement(final AbstractMinecart minecart, final Vec3 movement) {
 		Vec3 externalDirection = externalTrackDirection(minecart);
 		if (externalDirection.lengthSqr() > 1.0E-8D) {
 			Vec3 current = minecart.getDeltaMovement();
@@ -915,7 +1040,7 @@ public final class MinecartTrainLogic {
 		return movement.lengthSqr() > 1.0E-8D ? movement.normalize() : Vec3.ZERO;
 	}
 
-	private static Vec3 alignDirectionToTrack(final AbstractMinecart minecart, final Vec3 direction) {
+	public static Vec3 alignDirectionToTrack(final AbstractMinecart minecart, final Vec3 direction) {
 		Vec3 trackDirection = guidedTrackDirection(minecart);
 		if (trackDirection.lengthSqr() <= 1.0E-8D) {
 			return direction;
@@ -923,7 +1048,7 @@ public final class MinecartTrainLogic {
 		return direction.dot(trackDirection) < 0.0D ? trackDirection.reverse() : trackDirection;
 	}
 
-	private static Vec3 externalTrackDirection(final AbstractMinecart minecart) {
+	public static Vec3 externalTrackDirection(final AbstractMinecart minecart) {
 		if (!(minecart.level() instanceof ServerLevel serverLevel)) {
 			return Vec3.ZERO;
 		}
@@ -949,8 +1074,17 @@ public final class MinecartTrainLogic {
 		if (minecart instanceof MinecartFurnace furnace && isPoweredLocomotive(furnace)) {
 			return POWERED_ENGINE_LINK_WEIGHT;
 		}
+		if (minecart instanceof SteamLocomotiveEntity locomotive && locomotive.getThrottle() > 0.0F) {
+			return POWERED_ENGINE_LINK_WEIGHT;
+		}
 
 		return 1.0D;
+	}
+
+	private static boolean isEngineLocomotive(final AbstractMinecart minecart) {
+		return (minecart instanceof MinecartFurnace
+			&& ((MinecartChainAccess) minecart).minecartChain$hasEngineLever())
+			|| minecart instanceof SteamLocomotiveEntity;
 	}
 
 	private static boolean isPoweredLocomotive(final MinecartFurnace furnace) {

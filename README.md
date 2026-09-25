@@ -14,23 +14,19 @@ The locomotive can pull connected wagons and reacts to throttle, brake, directio
 
 
 ## Fuel and Water System
-**Locomotives now require both fuel and water to drive.**
+**Fuel and water consumption is optional and configurable (disabled by default).**
+You can enable or disable refueling requirements anytime using commands:
+- `/minecartchain refueling <true|false>` (or `/locomotive refueling <true|false>`)
+- `/minecartchain fuel <true|false>`
+- `/minecartchain water <true|false>`
 
+When enabled, supported fuel includes all vanilla furnace fuels (coal, charcoal, logs, lava buckets, etc.), and water can be added with water buckets. Fuel and water are consumed only while moving and scale with train length.
 
-Supported fuel includes all vanilla furnace fuels, such as:
-- Coal
-- Charcoal
-- Logs
-- Planks
-- Sticks
-- Wooden tools
-- Lava buckets
-- Other standard furnace fuels
-- Water can be added using water buckets.
-
-
-Fuel is consumed only while the locomotive is driving.
-Fuel and water usage scale with the number of connected minecarts in the train, so larger trains require more resources.
+## Radio Locomotive (with PeterWolf's TX/RX Redstone)
+When playing with **PeterWolf's TX/RX Redstone** (`peterwolfs_txrx_redstone`), you can craft or upgrade to a wireless **Radio Locomotive**:
+- **Wireless Throttle:** Set 8 jumpers for the throttle channel (0–255) to drive the locomotive with a remote Potentiometer / Transmitter.
+- **Wireless Reverse:** Set 8 jumpers for the reverse channel (0–255). Reverse can only engage when the train is stopped and inverts drive direction without turning the locomotive body around.
+- **Electronics Console UI:** Right-click the locomotive to open the jumper configuration panel matching the TX/RX block aesthetics with 2 rows of 4 jumpers, glowing red active states, and channel readouts.
 Locomotive Screen
 Furnace minecart locomotives now have a locomotive screen inspired by the vanilla furnace minecart.
 The screen shows:
@@ -114,11 +110,11 @@ More realistic Minecraft train networks
 
 | Component | Version |
 |-----------|---------|
-| Minecraft | 26.2 |
-| Fabric Loader | 0.19.3+ |
-| Fabric API | 0.153.0+26.2 |
+| Minecraft | 26.3 |
+| Fabric Loader | 0.19.5+ |
+| Fabric API | 0.160.7+26.3 |
 | Java | 25+ |
-| Mod | 1.0.21 |
+| Mod | 1.0.34 |
 
 Optional: [Splinecart](https://modrinth.com/mod/splinecart) for mounted-track trains.
 

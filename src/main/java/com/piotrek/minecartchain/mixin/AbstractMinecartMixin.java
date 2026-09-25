@@ -48,6 +48,14 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 	@Unique
 	private static final String WATER_TICKS_KEY = "MinecartChainWaterTicks";
 	@Unique
+	private static final String RADIO_LOCOMOTIVE_KEY = "MinecartChainRadioLocomotive";
+	@Unique
+	private static final String THROTTLE_CHANNEL_KEY = "MinecartChainThrottleChannel";
+	@Unique
+	private static final String REVERSE_CHANNEL_KEY = "MinecartChainReverseChannel";
+	@Unique
+	private static final String ARMED_KEY = "MinecartChainArmed";
+	@Unique
 	private static final EntityDataAccessor<String> LINK_A = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.STRING);
 	@Unique
 	private static final EntityDataAccessor<String> LINK_B = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.STRING);
@@ -65,6 +73,20 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 	private static final EntityDataAccessor<Float> LOCOMOTIVE_YAW = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.FLOAT);
 	@Unique
 	private static final EntityDataAccessor<Integer> WATER_TICKS = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.INT);
+	@Unique
+	private static final EntityDataAccessor<Boolean> RADIO_LOCOMOTIVE = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.BOOLEAN);
+	@Unique
+	private static final EntityDataAccessor<Integer> THROTTLE_CHANNEL = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.INT);
+	@Unique
+	private static final EntityDataAccessor<Integer> REVERSE_CHANNEL = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.INT);
+	@Unique
+	private static final EntityDataAccessor<Integer> RECEIVED_THROTTLE_POWER = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.INT);
+	@Unique
+	private static final EntityDataAccessor<Integer> RECEIVED_REVERSE_POWER = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.INT);
+	@Unique
+	private static final EntityDataAccessor<Boolean> REVERSE_PENDING = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.BOOLEAN);
+	@Unique
+	private static final EntityDataAccessor<Boolean> ARMED = SynchedEntityData.defineId(AbstractMinecart.class, EntityDataSerializers.BOOLEAN);
 
 	@Inject(method = "defineSynchedData", at = @At("TAIL"))
 	private void minecartChain$defineSynchedData(final SynchedEntityData.Builder builder, final CallbackInfo ci) {
@@ -77,6 +99,13 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 		builder.define(LOCOMOTIVE_YAW_SET, false);
 		builder.define(LOCOMOTIVE_YAW, 0.0F);
 		builder.define(WATER_TICKS, 0);
+		builder.define(RADIO_LOCOMOTIVE, false);
+		builder.define(THROTTLE_CHANNEL, 0);
+		builder.define(REVERSE_CHANNEL, 1);
+		builder.define(RECEIVED_THROTTLE_POWER, 0);
+		builder.define(RECEIVED_REVERSE_POWER, 0);
+		builder.define(REVERSE_PENDING, false);
+		builder.define(ARMED, true);
 	}
 
 	@Inject(method = "tick", at = @At("TAIL"))
@@ -151,6 +180,12 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 		if (!secondLink.isEmpty()) {
 			output.putString(LINK_B_KEY, secondLink);
 		}
+		if (this.minecartChain$isRadioLocomotive()) {
+			output.putBoolean(RADIO_LOCOMOTIVE_KEY, true);
+			output.putInt(THROTTLE_CHANNEL_KEY, this.minecartChain$getThrottleChannel());
+			output.putInt(REVERSE_CHANNEL_KEY, this.minecartChain$getReverseChannel());
+			output.putBoolean(ARMED_KEY, this.minecartChain$isArmed());
+		}
 		if (this.minecartChain$hasEngineLever()) {
 			output.putBoolean(ENGINE_LEVER_KEY, true);
 			output.putBoolean(ENGINE_ACTIVE_KEY, this.minecartChain$isEngineActive());
@@ -166,6 +201,10 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 
 	@Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
 	private void minecartChain$load(final ValueInput input, final CallbackInfo ci) {
+		this.minecartChain$setRadioLocomotive(input.getBooleanOr(RADIO_LOCOMOTIVE_KEY, false));
+		this.minecartChain$setThrottleChannel(input.getIntOr(THROTTLE_CHANNEL_KEY, 0));
+		this.minecartChain$setReverseChannel(input.getIntOr(REVERSE_CHANNEL_KEY, 1));
+		this.minecartChain$setArmed(input.getBooleanOr(ARMED_KEY, true));
 		this.minecartChain$setLinkString(LINK_A, input.getStringOr(LINK_A_KEY, EMPTY_LINK));
 		this.minecartChain$setLinkString(LINK_B, input.getStringOr(LINK_B_KEY, EMPTY_LINK));
 		this.minecartChain$setEngineLever(input.getBooleanOr(ENGINE_LEVER_KEY, false));
@@ -296,6 +335,79 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 	@Override
 	public void minecartChain$setWaterTicks(final int waterTicks) {
 		this.minecartChain$getEntityData().set(WATER_TICKS, Math.max(0, waterTicks));
+	}
+
+	@Override
+	public boolean minecartChain$isRadioLocomotive() {
+		return this.minecartChain$getEntityData().get(RADIO_LOCOMOTIVE);
+	}
+
+	@Override
+	public void minecartChain$setRadioLocomotive(final boolean radio) {
+		this.minecartChain$getEntityData().set(RADIO_LOCOMOTIVE, radio);
+		if (radio) {
+			this.minecartChain$setEngineLever(true);
+		}
+	}
+
+	@Override
+	public int minecartChain$getThrottleChannel() {
+		return this.minecartChain$getEntityData().get(THROTTLE_CHANNEL);
+	}
+
+	@Override
+	public void minecartChain$setThrottleChannel(final int channel) {
+		this.minecartChain$getEntityData().set(THROTTLE_CHANNEL, channel & 0xFF);
+	}
+
+	@Override
+	public int minecartChain$getReverseChannel() {
+		return this.minecartChain$getEntityData().get(REVERSE_CHANNEL);
+	}
+
+	@Override
+	public void minecartChain$setReverseChannel(final int channel) {
+		this.minecartChain$getEntityData().set(REVERSE_CHANNEL, channel & 0xFF);
+	}
+
+	@Override
+	public int minecartChain$getReceivedThrottlePower() {
+		return this.minecartChain$getEntityData().get(RECEIVED_THROTTLE_POWER);
+	}
+
+	@Override
+	public void minecartChain$setReceivedThrottlePower(final int power) {
+		this.minecartChain$getEntityData().set(RECEIVED_THROTTLE_POWER, Math.clamp(power, 0, 15));
+	}
+
+	@Override
+	public int minecartChain$getReceivedReversePower() {
+		return this.minecartChain$getEntityData().get(RECEIVED_REVERSE_POWER);
+	}
+
+	@Override
+	public void minecartChain$setReceivedReversePower(final int power) {
+		this.minecartChain$getEntityData().set(RECEIVED_REVERSE_POWER, Math.clamp(power, 0, 15));
+	}
+
+	@Override
+	public boolean minecartChain$isReversePending() {
+		return this.minecartChain$getEntityData().get(REVERSE_PENDING);
+	}
+
+	@Override
+	public void minecartChain$setReversePending(final boolean pending) {
+		this.minecartChain$getEntityData().set(REVERSE_PENDING, pending);
+	}
+
+	@Override
+	public boolean minecartChain$isArmed() {
+		return this.minecartChain$getEntityData().get(ARMED);
+	}
+
+	@Override
+	public void minecartChain$setArmed(final boolean armed) {
+		this.minecartChain$getEntityData().set(ARMED, armed);
 	}
 
 	public float getPickRadius() {

@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "C": "minecraft:iron_chain",
+    "F": "minecraft:furnace",
+    "I": "minecraft:iron_ingot",
+    "M": "minecraft:minecart"
+  },
+  "pattern": [
+    " I ",
+    "IFI",
+    "CMC"
+  ],
+  "result": {
+    "id": "minecart_chain:steam_locomotive"
+  }
+}

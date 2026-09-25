@@ -29,9 +29,9 @@ import net.minecraft.world.phys.BlockHitResult;
 
 public class SignalRailBlock extends PoweredRailBlock {
 	public static final EnumProperty<SignalMode> MODE = EnumProperty.create("mode", SignalMode.class);
-	private static final int SAME_TRAIN_REPEAT_DELAY_TICKS = 100;
+	private static final int OCCUPANCY_TIMEOUT_TICKS = 15;
 	private static final int ACTIVATION_CLEANUP_TICKS = 1200;
-	private static final Map<ActivationKey, Long> ACTIVATIONS = new HashMap<>();
+	private static final Map<ActivationKey, Occupancy> OCCUPANCIES = new HashMap<>();
 
 	public SignalRailBlock(final BlockBehaviour.Properties properties) {
 		super(properties);
@@ -96,9 +96,20 @@ public class SignalRailBlock extends PoweredRailBlock {
 		if (state.getValue(SHAPE).isSlope()) {
 			level.updateNeighborsAt(pos.above(), this);
 		}
-		if (!shouldPower) {
-			clearActivations(GlobalPos.of(level.dimension(), pos));
+		if (!shouldPower && level instanceof ServerLevel serverLevel) {
+			releaseHeldBrakes(serverLevel, GlobalPos.of(level.dimension(), pos));
 		}
+	}
+
+	@Override
+	protected void affectNeighborsAfterRemoval(
+		final BlockState state,
+		final ServerLevel level,
+		final BlockPos pos,
+		final boolean movedByPiston
+	) {
+		releaseHeldBrakes(level, GlobalPos.of(level.dimension(), pos));
+		super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
 	}
 
 	@Override
@@ -108,73 +119,132 @@ public class SignalRailBlock extends PoweredRailBlock {
 
 	private void applySignal(final ServerLevel level, final BlockPos pos, final SignalMode mode, final MinecartFurnace locomotive) {
 		long gameTime = level.getGameTime();
-		cleanupActivations(gameTime);
+		cleanupOccupancies(gameTime);
 
-		// Use the shared train key so multi-loco consists share one cooldown window.
 		ActivationKey key = new ActivationKey(
 			GlobalPos.of(level.dimension(), pos),
 			MinecartTrainLogic.connectedTrainKey(level, locomotive)
 		);
-		Long previousTick = ACTIVATIONS.get(key);
-		if (previousTick != null && gameTime - previousTick < SAME_TRAIN_REPEAT_DELAY_TICKS) {
+		Occupancy occupancy = OCCUPANCIES.get(key);
+		boolean occupying = occupancy != null && gameTime - occupancy.lastSeenGameTime < OCCUPANCY_TIMEOUT_TICKS;
+
+		if (mode == SignalMode.BRAKE) {
+			this.holdBrake(level, pos, key, locomotive, occupancy, occupying, gameTime);
 			return;
 		}
 
-		// Reverse only works while the train is stopped. Do not arm the cooldown
+		if (occupying) {
+			occupancy.lastSeenGameTime = gameTime;
+			return;
+		}
+
+		// Reverse only works while the train is stopped. Do not mark occupancy
 		// until the lever actually toggles, otherwise a moving pass locks the rail
-		// for ~5s and the train cannot reverse once it does stop.
+		// and the train cannot reverse once it does stop.
 		if (mode == SignalMode.REVERSE && !MinecartTrainLogic.isTrainStopped(locomotive)) {
 			return;
 		}
 
 		MinecartChainAccess data = (MinecartChainAccess) locomotive;
 		float pitch = mode.pitch();
-		switch (mode) {
-			case THROTTLE -> {
-				boolean fullThrottle = !data.minecartChain$isFullThrottle();
-				data.minecartChain$setFullThrottle(fullThrottle);
-				pitch = fullThrottle ? 0.7F : 0.55F;
-			}
-			case BRAKE -> {
-				boolean brake = !data.minecartChain$isEngineActive();
-				data.minecartChain$setEngineActive(brake);
-				pitch = brake ? 0.5F : 0.6F;
-			}
-			case REVERSE -> {
-				boolean reversed = !data.minecartChain$isReversed();
-				data.minecartChain$setReversed(reversed);
-				MinecartTrainLogic.snapLocomotiveYaw(locomotive, MinecartTrainLogic.drivingDirection(locomotive));
-				pitch = reversed ? 0.75F : 0.6F;
-			}
+		if (mode == SignalMode.THROTTLE) {
+			boolean fullThrottle = !data.minecartChain$isFullThrottle();
+			data.minecartChain$setFullThrottle(fullThrottle);
+			pitch = fullThrottle ? 0.7F : 0.55F;
+		} else {
+			boolean reversed = !data.minecartChain$isReversed();
+			data.minecartChain$setReversed(reversed);
+			MinecartTrainLogic.snapLocomotiveYaw(locomotive, MinecartTrainLogic.engineDirection(locomotive));
+			pitch = reversed ? 0.75F : 0.6F;
 		}
 
-		ACTIVATIONS.put(key, gameTime);
+		OCCUPANCIES.put(key, new Occupancy(locomotive.getUUID(), gameTime, false));
 		level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.9F, pitch);
 	}
 
-	private static void clearActivations(final GlobalPos railPos) {
-		ACTIVATIONS.keySet().removeIf(key -> key.railPos().equals(railPos));
+	private void holdBrake(
+		final ServerLevel level,
+		final BlockPos pos,
+		final ActivationKey key,
+		final MinecartFurnace locomotive,
+		final Occupancy occupancy,
+		final boolean occupying,
+		final long gameTime
+	) {
+		MinecartChainAccess data = (MinecartChainAccess) locomotive;
+		boolean alreadyBraked = data.minecartChain$isEngineActive();
+		if (!alreadyBraked) {
+			data.minecartChain$setEngineActive(true);
+			level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.9F, 0.5F);
+		}
+		MinecartTrainLogic.applyTrainBrake(locomotive);
+		if (occupying) {
+			occupancy.lastSeenGameTime = gameTime;
+			occupancy.locomotiveId = locomotive.getUUID();
+			occupancy.brakeHeld = true;
+			return;
+		}
+		OCCUPANCIES.put(key, new Occupancy(locomotive.getUUID(), gameTime, true));
 	}
 
-	private static void cleanupActivations(final long gameTime) {
-		if (ACTIVATIONS.size() < 512 && gameTime % 200L != 0L) {
+	private static void releaseHeldBrakes(final ServerLevel level, final GlobalPos railPos) {
+		Iterator<Map.Entry<ActivationKey, Occupancy>> iterator = OCCUPANCIES.entrySet().iterator();
+		while (iterator.hasNext()) {
+			Map.Entry<ActivationKey, Occupancy> entry = iterator.next();
+			if (!entry.getKey().railPos().equals(railPos)) {
+				continue;
+			}
+
+			Occupancy occupancy = entry.getValue();
+			if (occupancy.brakeHeld) {
+				Entity entity = level.getEntityInAnyDimension(occupancy.locomotiveId);
+				if (entity instanceof MinecartFurnace locomotive) {
+					MinecartChainAccess data = (MinecartChainAccess) locomotive;
+					if (data.minecartChain$hasEngineLever() && data.minecartChain$isEngineActive()) {
+						data.minecartChain$setEngineActive(false);
+						MinecartTrainLogic.startConsistForward(locomotive);
+						level.playSound(
+							null,
+							locomotive.blockPosition(),
+							SoundEvents.LEVER_CLICK,
+							SoundSource.BLOCKS,
+							0.8F,
+							0.6F
+						);
+					}
+				}
+			}
+			iterator.remove();
+		}
+	}
+
+	private static void cleanupOccupancies(final long gameTime) {
+		if (OCCUPANCIES.size() < 512 && gameTime % 200L != 0L) {
 			return;
 		}
 
-		Iterator<Map.Entry<ActivationKey, Long>> iterator = ACTIVATIONS.entrySet().iterator();
-		while (iterator.hasNext()) {
-			Map.Entry<ActivationKey, Long> entry = iterator.next();
-			if (gameTime - entry.getValue() > ACTIVATION_CLEANUP_TICKS) {
-				iterator.remove();
-			}
-		}
+		OCCUPANCIES.entrySet().removeIf(entry ->
+			!entry.getValue().brakeHeld && gameTime - entry.getValue().lastSeenGameTime > ACTIVATION_CLEANUP_TICKS
+		);
 	}
 
 	static void clearRuntimeState() {
-		ACTIVATIONS.clear();
+		OCCUPANCIES.clear();
 	}
 
-	private record ActivationKey(GlobalPos railPos, UUID locomotiveId) {
+	private record ActivationKey(GlobalPos railPos, UUID trainKey) {
+	}
+
+	private static final class Occupancy {
+		private UUID locomotiveId;
+		private long lastSeenGameTime;
+		private boolean brakeHeld;
+
+		private Occupancy(final UUID locomotiveId, final long lastSeenGameTime, final boolean brakeHeld) {
+			this.locomotiveId = locomotiveId;
+			this.lastSeenGameTime = lastSeenGameTime;
+			this.brakeHeld = brakeHeld;
+		}
 	}
 
 	public enum SignalMode implements StringRepresentable {

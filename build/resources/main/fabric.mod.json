@@ -1,7 +1,7 @@
 {
 	"schemaVersion": 1,
 	"id": "minecart_chain",
-	"version": "1.0.8",
+	"version": "1.1.1",
 	"name": "Minecart Chain",
 	"description": "Allows minecarts to be chained with iron chains and driven by a lever-controlled furnace minecart.",
 	"authors": [
@@ -22,8 +22,8 @@
 		"minecart_chain.mixins.json"
 	],
 	"depends": {
-		"fabricloader": ">=0.19.3",
-		"minecraft": "~26.1.2",
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
 		"java": ">=25",
 		"fabric-api": "*"
 	}

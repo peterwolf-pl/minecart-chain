@@ -26,6 +26,10 @@ public abstract class MinecartRenderStateMixin implements MinecartChainRenderSta
 	@Unique
 	private final BlockModelRenderState minecartChain$chimneyModel = new BlockModelRenderState();
 	@Unique
+	private final BlockModelRenderState minecartChain$receiverModel = new BlockModelRenderState();
+	@Unique
+	private final BlockModelRenderState minecartChain$antennaModel = new BlockModelRenderState();
+	@Unique
 	private final BlockModelRenderState minecartChain$chainXModel = new BlockModelRenderState();
 	@Unique
 	private final BlockModelRenderState minecartChain$chainZModel = new BlockModelRenderState();
@@ -33,6 +37,8 @@ public abstract class MinecartRenderStateMixin implements MinecartChainRenderSta
 	private final List<Vec3> minecartChain$chainOffsets = new ArrayList<>(2);
 	@Unique
 	private boolean minecartChain$hasLever;
+	@Unique
+	private boolean minecartChain$radioLocomotive;
 	@Unique
 	private boolean minecartChain$fullThrottle;
 	@Unique
@@ -82,6 +88,16 @@ public abstract class MinecartRenderStateMixin implements MinecartChainRenderSta
 	}
 
 	@Override
+	public BlockModelRenderState minecartChain$receiverModel() {
+		return this.minecartChain$receiverModel;
+	}
+
+	@Override
+	public BlockModelRenderState minecartChain$antennaModel() {
+		return this.minecartChain$antennaModel;
+	}
+
+	@Override
 	public BlockModelRenderState minecartChain$chainXModel() {
 		return this.minecartChain$chainXModel;
 	}
@@ -99,6 +115,16 @@ public abstract class MinecartRenderStateMixin implements MinecartChainRenderSta
 	@Override
 	public void minecartChain$setHasLever(final boolean hasLever) {
 		this.minecartChain$hasLever = hasLever;
+	}
+
+	@Override
+	public boolean minecartChain$isRadioLocomotive() {
+		return this.minecartChain$radioLocomotive;
+	}
+
+	@Override
+	public void minecartChain$setRadioLocomotive(final boolean radioLocomotive) {
+		this.minecartChain$radioLocomotive = radioLocomotive;
 	}
 
 	@Override

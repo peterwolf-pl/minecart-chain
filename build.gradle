@@ -24,6 +24,20 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	def txrxDir = file('../peterwolfs-tx-rx-redstone/build/libs')
+	def txrxClasses = file('../peterwolfs-tx-rx-redstone/build/classes/java/main')
+	if (txrxDir.exists()) {
+		def jars = fileTree(dir: txrxDir, include: ['peterwolfs-tx-rx-redstone*.jar'], exclude: ['*-sources.jar'])
+		compileOnly jars
+		clientCompileOnly jars
+		localRuntime jars
+	}
+	if (txrxClasses.exists()) {
+		compileOnly files(txrxClasses)
+		clientCompileOnly files(txrxClasses)
+	}
+
 }
 
 processResources {
