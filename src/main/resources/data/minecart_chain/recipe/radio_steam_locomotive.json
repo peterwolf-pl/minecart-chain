@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "equipment",
+  "fabric:load_conditions": [
+    {
+      "condition": "fabric:all_mods_loaded",
+      "values": [
+        "peterwolfs_txrx_redstone"
+      ]
+    }
+  ],
+  "ingredients": [
+    "minecart_chain:steam_locomotive",
+    "peterwolfs_txrx_redstone:receiver"
+  ],
+  "result": {
+    "id": "minecart_chain:radio_steam_locomotive"
+  }
+}

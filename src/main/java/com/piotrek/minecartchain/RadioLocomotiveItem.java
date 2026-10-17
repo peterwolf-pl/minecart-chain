@@ -5,7 +5,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
 import net.minecraft.world.item.Item;
@@ -45,7 +45,7 @@ public class RadioLocomotiveItem extends Item {
 				spawnX,
 				spawnY,
 				spawnZ,
-				EntityTypes.FURNACE_MINECART,
+				EntityType.FURNACE_MINECART,
 				EntitySpawnReason.DISPENSER,
 				stack,
 				context.getPlayer()

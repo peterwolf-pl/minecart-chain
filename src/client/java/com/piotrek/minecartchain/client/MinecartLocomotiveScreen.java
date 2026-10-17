@@ -1,7 +1,7 @@
 package com.piotrek.minecartchain.client;
 
 import com.piotrek.minecartchain.MinecartLocomotiveMenu;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
@@ -26,8 +26,13 @@ public class MinecartLocomotiveScreen extends AbstractContainerScreen<MinecartLo
 	}
 
 	@Override
-	public void extractBackground(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float tickProgress) {
-		super.extractBackground(graphics, mouseX, mouseY, tickProgress);
+	public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float tickProgress) {
+		super.render(graphics, mouseX, mouseY, tickProgress);
+		this.renderTooltip(graphics, mouseX, mouseY);
+	}
+
+	@Override
+	protected void renderBg(final GuiGraphics graphics, final float tickProgress, final int mouseX, final int mouseY) {
 		int x = this.leftPos;
 		int y = this.topPos;
 		graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, x, y, 0.0F, 0.0F, this.imageWidth, this.imageHeight, 256, 256);
@@ -36,15 +41,15 @@ public class MinecartLocomotiveScreen extends AbstractContainerScreen<MinecartLo
 	}
 
 	@Override
-	protected void extractLabels(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY) {
-		super.extractLabels(graphics, mouseX, mouseY);
-		graphics.text(this.font, Component.translatable("container.minecart_chain.fuel"), 80, 19, -12566464, false);
-		graphics.text(this.font, formatTicks(this.menu.fuelTicks(), this.menu.maxFuelTicks()), 80, 30, -12566464, false);
-		graphics.text(this.font, Component.translatable("container.minecart_chain.water"), 80, 55, -12566464, false);
-		graphics.text(this.font, formatTicks(this.menu.waterTicks(), this.menu.maxWaterTicks()), 80, 66, -12566464, false);
+	protected void renderLabels(final GuiGraphics graphics, final int mouseX, final int mouseY) {
+		super.renderLabels(graphics, mouseX, mouseY);
+		graphics.drawString(this.font, Component.translatable("container.minecart_chain.fuel"), 80, 19, -12566464, false);
+		graphics.drawString(this.font, Component.literal(formatTicks(this.menu.fuelTicks(), this.menu.maxFuelTicks())), 80, 30, -12566464, false);
+		graphics.drawString(this.font, Component.translatable("container.minecart_chain.water"), 80, 55, -12566464, false);
+		graphics.drawString(this.font, Component.literal(formatTicks(this.menu.waterTicks(), this.menu.maxWaterTicks())), 80, 66, -12566464, false);
 	}
 
-	private void extractFuelBar(final GuiGraphicsExtractor graphics, final int x, final int y) {
+	private void extractFuelBar(final GuiGraphics graphics, final int x, final int y) {
 		if (this.menu.fuelTicks() <= 0) {
 			return;
 		}
@@ -64,7 +69,7 @@ public class MinecartLocomotiveScreen extends AbstractContainerScreen<MinecartLo
 		);
 	}
 
-	private void extractWaterBar(final GuiGraphicsExtractor graphics, final int x, final int y) {
+	private void extractWaterBar(final GuiGraphics graphics, final int x, final int y) {
 		int barX = x + 56;
 		int barY = y + 18;
 		int width = 14;

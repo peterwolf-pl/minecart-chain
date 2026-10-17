@@ -13,7 +13,7 @@
     },
     "has_the_recipe": {
       "conditions": {
-        "recipes": "minecart_chain:steam_locomotive"
+        "recipe": "minecart_chain:steam_locomotive"
       },
       "trigger": "minecraft:recipe_unlocked"
     }

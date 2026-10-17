@@ -6,23 +6,18 @@ import com.piotrek.minecartchain.MinecartChainAccess;
 import com.piotrek.minecartchain.MinecartControlLayout;
 import com.piotrek.minecartchain.MinecartTrainLogic;
 import com.piotrek.minecartchain.client.MinecartChainRenderState;
-import java.util.Optional;
 import java.util.UUID;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.block.BlockModelRenderState;
-import net.minecraft.client.renderer.block.BlockModelResolver;
 import net.minecraft.client.renderer.entity.AbstractMinecartRenderer;
 import net.minecraft.client.renderer.entity.state.MinecartRenderState;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
-import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
-import net.minecraft.world.entity.vehicle.minecart.NewMinecartBehavior;
-import net.minecraft.world.entity.vehicle.minecart.OldMinecartBehavior;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -31,24 +26,27 @@ import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.minecraft.world.phys.Vec3;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(AbstractMinecartRenderer.class)
 public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, S extends MinecartRenderState> {
-	private static final double CHAIN_ATTACHMENT_OFFSET = 0.62D;
-	private static final double CHAIN_HEIGHT = 0.38D;
-	private static final double CHAIN_SEGMENT_SPACING = 0.42D;
-	private static final float CHAIN_SEGMENT_SCALE = 0.46F;
-	private static final float CONTROL_BASE_Y = 0.43F;
-	private static final float CONTROL_LEVER_Y = 0.44F;
-	private static final float CONTROL_BASE_X_SCALE = 0.08F;
+	private static final double CHAIN_ATTACHMENT_OFFSET = 0.5D;
+	private static final double CHAIN_HEIGHT = 0.35D;
+	private static final float CHAIN_SEGMENT_SCALE = 0.22F;
+	private static final float CONTROL_BASE_Y = 0.62F;
+	private static final float CONTROL_LEVER_Y = 0.82F;
+	private static final float CHIMNEY_Z = -0.06F;
+	private static final float RECEIVER_Z = 0.08F;
+	private static final float ANTENNA_Y = 0.94F;
+	private static final float RECEIVER_XZ_SCALE = 0.44F;
+	private static final float RECEIVER_Y_SCALE = 0.24F;
+	private static final float ANTENNA_XZ_SCALE = 0.18F;
+	private static final float ANTENNA_Y_SCALE = 0.48F;
+	private static final float CONTROL_BASE_XZ_SCALE = 0.16F;
 	private static final float CONTROL_BASE_Y_SCALE = 0.32F;
-	private static final float CONTROL_BASE_Z_SCALE = 0.28F;
 	private static final float CONTROL_LEVER_SCALE = 0.48F;
 	private static final float CHIMNEY_Y = 0.95F;
 	private static final float CHIMNEY_XZ_SCALE = 0.24F;
@@ -58,9 +56,9 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 	private static final BlockState CHAIN_Z_BLOCK = Blocks.IRON_CHAIN.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.Z);
 	private static final BlockState LEVER_OFF = leverBlock(false);
 	private static final BlockState LEVER_ON = leverBlock(true);
-	private static final BlockState BRAKE_BASE = Blocks.CONCRETE.pick(DyeColor.RED).defaultBlockState();
-	private static final BlockState DIRECTION_BASE = Blocks.CONCRETE.pick(DyeColor.BLUE).defaultBlockState();
-	private static final BlockState THROTTLE_BASE = Blocks.CONCRETE.pick(DyeColor.BLACK).defaultBlockState();
+	private static final BlockState BRAKE_BASE = Blocks.RED_CONCRETE.defaultBlockState();
+	private static final BlockState DIRECTION_BASE = Blocks.BLUE_CONCRETE.defaultBlockState();
+	private static final BlockState THROTTLE_BASE = Blocks.BLACK_CONCRETE.defaultBlockState();
 	private static final BlockState CHIMNEY_BLOCK = Blocks.BLACKSTONE.defaultBlockState();
 	private static final BlockState ANTENNA_BLOCK = Blocks.IRON_BARS.defaultBlockState();
 
@@ -71,21 +69,13 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 			.orElse(Blocks.REDSTONE_BLOCK.defaultBlockState());
 	}
 
-	@Shadow
-	@Final
-	private BlockModelResolver blockModelResolver;
-
 	@Inject(method = "extractRenderState(Lnet/minecraft/world/entity/vehicle/minecart/AbstractMinecart;Lnet/minecraft/client/renderer/entity/state/MinecartRenderState;F)V", at = @At("TAIL"))
 	private void minecartChain$extractRenderState(final T minecart, final S state, final float tickProgress, final CallbackInfo ci) {
 		MinecartChainRenderState chainState = (MinecartChainRenderState) state;
 		MinecartChainAccess data = (MinecartChainAccess) minecart;
 		chainState.minecartChain$clearChainOffsets();
-		this.minecartChain$appendChainOffset(minecart, chainState, data.minecartChain$getFirstLink(), tickProgress);
-		this.minecartChain$appendChainOffset(minecart, chainState, data.minecartChain$getSecondLink(), tickProgress);
-		if (!chainState.minecartChain$chainOffsets().isEmpty()) {
-			this.blockModelResolver.update(chainState.minecartChain$chainXModel(), CHAIN_X_BLOCK, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-			this.blockModelResolver.update(chainState.minecartChain$chainZModel(), CHAIN_Z_BLOCK, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		}
+		this.minecartChain$appendChainOffset(minecart, chainState, data.minecartChain$getFirstLink().orElse(null), tickProgress);
+		this.minecartChain$appendChainOffset(minecart, chainState, data.minecartChain$getSecondLink().orElse(null), tickProgress);
 
 		boolean hasLever = minecart instanceof MinecartFurnace && data.minecartChain$hasEngineLever();
 		chainState.minecartChain$setHasLever(hasLever);
@@ -98,18 +88,11 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 			chainState.minecartChain$setLocomotiveYaw(0.0F);
 			chainState.minecartChain$setMountedTrack(false);
 			chainState.minecartChain$setFlipMountedTrackControls(false);
-			chainState.minecartChain$leverModel().clear();
-			chainState.minecartChain$throttleLeverModel().clear();
-			chainState.minecartChain$directionLeverModel().clear();
-			chainState.minecartChain$brakeBaseModel().clear();
-			chainState.minecartChain$directionBaseModel().clear();
-			chainState.minecartChain$throttleBaseModel().clear();
-			chainState.minecartChain$chimneyModel().clear();
-			chainState.minecartChain$receiverModel().clear();
-			chainState.minecartChain$antennaModel().clear();
+			chainState.minecartChain$setEngineActive(false);
 			return;
 		}
 
+		chainState.minecartChain$setEngineActive(data.minecartChain$isEngineActive());
 		chainState.minecartChain$setFullThrottle(data.minecartChain$isFullThrottle());
 		chainState.minecartChain$setReversed(data.minecartChain$isReversed());
 		chainState.minecartChain$setHasLocomotiveYaw(data.minecartChain$hasLocomotiveYaw());
@@ -119,37 +102,10 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 		chainState.minecartChain$setFlipMountedTrackControls(
 			mountedTrack && MinecartTrainLogic.shouldFlipMountedTrackLocomotiveControls(minecart)
 		);
-
-		this.blockModelResolver.update(chainState.minecartChain$chimneyModel(), CHIMNEY_BLOCK, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-
-		if (isRadio) {
-			chainState.minecartChain$leverModel().clear();
-			chainState.minecartChain$throttleLeverModel().clear();
-			chainState.minecartChain$directionLeverModel().clear();
-			chainState.minecartChain$brakeBaseModel().clear();
-			chainState.minecartChain$directionBaseModel().clear();
-			chainState.minecartChain$throttleBaseModel().clear();
-			this.blockModelResolver.update(chainState.minecartChain$receiverModel(), resolveReceiverBlock(), AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-			this.blockModelResolver.update(chainState.minecartChain$antennaModel(), ANTENNA_BLOCK, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-			return;
-		}
-
-		chainState.minecartChain$receiverModel().clear();
-		chainState.minecartChain$antennaModel().clear();
-
-		BlockState brakeLeverState = data.minecartChain$isEngineActive() ? LEVER_ON : LEVER_OFF;
-		BlockState throttleLeverState = chainState.minecartChain$isFullThrottle() ? LEVER_ON : LEVER_OFF;
-		BlockState directionLeverState = chainState.minecartChain$isReversed() ? LEVER_ON : LEVER_OFF;
-		this.blockModelResolver.update(chainState.minecartChain$leverModel(), brakeLeverState, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$throttleLeverModel(), throttleLeverState, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$directionLeverModel(), directionLeverState, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$brakeBaseModel(), BRAKE_BASE, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$directionBaseModel(), DIRECTION_BASE, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
-		this.blockModelResolver.update(chainState.minecartChain$throttleBaseModel(), THROTTLE_BASE, AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT);
 	}
 
 	@Inject(
-		method = "submit(Lnet/minecraft/client/renderer/entity/state/MinecartRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+		method = "submit(Lnet/minecraft/client/renderer/entity/state/MinecartRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
 		at = @At("HEAD")
 	)
 	private void minecartChain$submitChains(
@@ -167,22 +123,22 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 		poseStack.pushPose();
 		if (!state.isNewRender && state.posOnRail != null) {
 			double dy = (state.frontPos != null && state.backPos != null)
-				? (state.frontPos.y + state.backPos.y) * 0.5D - state.y
+				? ((state.frontPos.y + state.backPos.y) / 2.0D - state.y)
 				: 0.0D;
 			poseStack.translate(state.posOnRail.x - state.x, dy, state.posOnRail.z - state.z);
 		}
 
 		for (Vec3 offset : chainState.minecartChain$chainOffsets()) {
-			this.minecartChain$submitChain(offset, chainState, poseStack, submitNodeCollector, state.lightCoords, state.outlineColor);
+			this.minecartChain$submitChainSegments(offset, poseStack, submitNodeCollector, state.lightCoords, state.outlineColor);
 		}
 		poseStack.popPose();
 	}
 
 	@Inject(
-		method = "submit(Lnet/minecraft/client/renderer/entity/state/MinecartRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
-		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/block/BlockModelRenderState;isEmpty()Z")
+		method = "submit(Lnet/minecraft/client/renderer/entity/state/MinecartRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/AbstractMinecartRenderer;submitMinecartContents(Lnet/minecraft/client/renderer/entity/state/MinecartRenderState;Lnet/minecraft/world/level/block/state/BlockState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V", shift = At.Shift.AFTER)
 	)
-	private void minecartChain$submitCartControls(
+	private void minecartChain$submitLocomotiveControls(
 		final S state,
 		final PoseStack poseStack,
 		final SubmitNodeCollector submitNodeCollector,
@@ -190,14 +146,10 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 		final CallbackInfo ci
 	) {
 		MinecartChainRenderState chainState = (MinecartChainRenderState) state;
-		if (!chainState.minecartChain$hasLever()) {
-			return;
-		}
-
 		if (chainState.minecartChain$isRadioLocomotive()) {
 			poseStack.pushPose();
 			if (this.minecartChain$shouldFlipLocomotiveControls(state, chainState)) {
-				poseStack.rotateDegrees(Axis.YP, 180.0F);
+				poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
 			}
 			this.minecartChain$submitChimney(chainState, poseStack, submitNodeCollector, state.lightCoords, state.outlineColor);
 			this.minecartChain$submitReceiverModule(chainState, poseStack, submitNodeCollector, state.lightCoords, state.outlineColor);
@@ -205,18 +157,22 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 			return;
 		}
 
-		if (chainState.minecartChain$leverModel().isEmpty()) {
+		if (!chainState.minecartChain$hasLever()) {
 			return;
 		}
 
 		if (this.minecartChain$shouldFlipLocomotiveControls(state, chainState)) {
-			poseStack.rotateDegrees(Axis.YP, 180.0F);
+			poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
 		}
 
 		this.minecartChain$submitChimney(chainState, poseStack, submitNodeCollector, state.lightCoords, state.outlineColor);
+		BlockState brakeLever = chainState.minecartChain$isEngineActive() ? LEVER_ON : LEVER_OFF;
+		BlockState throttleLever = chainState.minecartChain$isFullThrottle() ? LEVER_ON : LEVER_OFF;
+		BlockState directionLever = chainState.minecartChain$isReversed() ? LEVER_ON : LEVER_OFF;
+
 		this.minecartChain$submitControl(
-			chainState.minecartChain$brakeBaseModel(),
-			chainState.minecartChain$leverModel(),
+			BRAKE_BASE,
+			brakeLever,
 			(float) MinecartControlLayout.REAR_CONTROL_X,
 			(float) MinecartControlLayout.BRAKE_CONTROL_Z,
 			poseStack,
@@ -225,8 +181,8 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 			state.outlineColor
 		);
 		this.minecartChain$submitControl(
-			chainState.minecartChain$directionBaseModel(),
-			chainState.minecartChain$directionLeverModel(),
+			DIRECTION_BASE,
+			directionLever,
 			(float) MinecartControlLayout.REAR_CONTROL_X,
 			(float) MinecartControlLayout.DIRECTION_CONTROL_Z,
 			poseStack,
@@ -235,8 +191,8 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 			state.outlineColor
 		);
 		this.minecartChain$submitControl(
-			chainState.minecartChain$throttleBaseModel(),
-			chainState.minecartChain$throttleLeverModel(),
+			THROTTLE_BASE,
+			throttleLever,
 			(float) MinecartControlLayout.REAR_CONTROL_X,
 			(float) MinecartControlLayout.THROTTLE_CONTROL_Z,
 			poseStack,
@@ -247,7 +203,7 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 	}
 
 	@Inject(
-		method = "submit(Lnet/minecraft/client/renderer/entity/state/MinecartRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+		method = "submit(Lnet/minecraft/client/renderer/entity/state/MinecartRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
 		at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;popPose()V", ordinal = 0, shift = At.Shift.AFTER)
 	)
 	private void minecartChain$restoreCartControlRotation(
@@ -259,12 +215,12 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 	) {
 		MinecartChainRenderState chainState = (MinecartChainRenderState) state;
 		if (this.minecartChain$shouldFlipLocomotiveControls(state, chainState)) {
-			poseStack.rotateDegrees(Axis.YP, -180.0F);
+			poseStack.mulPose(Axis.YP.rotationDegrees(-180.0F));
 		}
 	}
 
 	private boolean minecartChain$shouldFlipLocomotiveControls(final S state, final MinecartChainRenderState chainState) {
-		if (!chainState.minecartChain$hasLever() || !chainState.minecartChain$hasLocomotiveYaw() || state.displayBlockModel.isEmpty()) {
+		if (!chainState.minecartChain$hasLever() || !chainState.minecartChain$hasLocomotiveYaw() || state.displayBlockState.isAir()) {
 			return false;
 		}
 		if (chainState.minecartChain$isMountedTrack()) {
@@ -287,40 +243,35 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 			return Mth.wrapDegrees(state.yRot);
 		}
 
-		// NewMinecartBehavior stores the yaw applied directly to the cart pose.
-		// The locomotive's local front is -X, so its world-space front yaw is
-		// 180 - pose yaw. Treating entity yaw like a normal forward-vector yaw
-		// introduced a constant 90-degree offset and made the flip test oscillate
-		// while traversing a curve.
-		return Mth.wrapDegrees(180.0F - state.yRot);
+		return Mth.wrapDegrees(state.yRot);
 	}
 
 	private static float minecartChain$yawFromDirection(final Vec3 direction) {
-		return Mth.wrapDegrees((float) (Mth.atan2(direction.z, direction.x) * Mth.RAD_TO_DEG));
+		return (float) (Mth.atan2(direction.z, direction.x) * (180.0D / Math.PI)) + 90.0F;
 	}
 
 	private void minecartChain$submitControl(
-		final BlockModelRenderState baseModel,
-		final BlockModelRenderState leverModel,
-		final float offsetX,
-		final float offsetZ,
+		final BlockState baseState,
+		final BlockState leverState,
+		final float x,
+		final float z,
 		final PoseStack poseStack,
 		final SubmitNodeCollector submitNodeCollector,
 		final int lightCoords,
 		final int outlineColor
 	) {
 		poseStack.pushPose();
-		poseStack.translate(offsetX, CONTROL_BASE_Y, offsetZ);
-		poseStack.scale(CONTROL_BASE_X_SCALE, CONTROL_BASE_Y_SCALE, CONTROL_BASE_Z_SCALE);
+		poseStack.translate(x, CONTROL_BASE_Y, z);
+		poseStack.scale(CONTROL_BASE_XZ_SCALE, CONTROL_BASE_Y_SCALE, CONTROL_BASE_XZ_SCALE);
 		poseStack.translate(-0.5F, -0.5F, -0.5F);
-		baseModel.submit(poseStack, submitNodeCollector, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
+		submitNodeCollector.submitBlock(poseStack, baseState, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
 		poseStack.popPose();
 
 		poseStack.pushPose();
-		poseStack.translate(offsetX, CONTROL_LEVER_Y, offsetZ);
+		poseStack.translate(x, CONTROL_LEVER_Y, z);
 		poseStack.scale(CONTROL_LEVER_SCALE, CONTROL_LEVER_SCALE, CONTROL_LEVER_SCALE);
-		poseStack.translate(-0.5F, 0.0F, -0.5F);
-		leverModel.submit(poseStack, submitNodeCollector, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
+		poseStack.translate(-0.5F, -0.5F, -0.5F);
+		submitNodeCollector.submitBlock(poseStack, leverState, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
 		poseStack.popPose();
 	}
 
@@ -331,15 +282,11 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 		final int lightCoords,
 		final int outlineColor
 	) {
-		if (chainState.minecartChain$chimneyModel().isEmpty()) {
-			return;
-		}
-
 		poseStack.pushPose();
-		poseStack.translate((float) MinecartControlLayout.CHIMNEY_RENDER_X, CHIMNEY_Y, (float) MinecartControlLayout.CHIMNEY_RENDER_Z);
+		poseStack.translate(0.0F, CHIMNEY_Y, CHIMNEY_Z);
 		poseStack.scale(CHIMNEY_XZ_SCALE, CHIMNEY_Y_SCALE, CHIMNEY_XZ_SCALE);
 		poseStack.translate(-0.5F, -0.5F, -0.5F);
-		chainState.minecartChain$chimneyModel().submit(poseStack, submitNodeCollector, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
+		submitNodeCollector.submitBlock(poseStack, CHIMNEY_BLOCK, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
 		poseStack.popPose();
 	}
 
@@ -350,105 +297,80 @@ public abstract class AbstractMinecartRendererMixin<T extends AbstractMinecart, 
 		final int lightCoords,
 		final int outlineColor
 	) {
-		if (chainState.minecartChain$receiverModel().isEmpty()) {
-			return;
-		}
-
-		// Receiver carpet unit on rear deck
 		poseStack.pushPose();
-		poseStack.translate(0.35F, 0.44F, 0.0F);
-		poseStack.scale(0.55F, 0.35F, 0.7F);
+		poseStack.translate(0.0F, CONTROL_BASE_Y, RECEIVER_Z);
+		poseStack.scale(RECEIVER_XZ_SCALE, RECEIVER_Y_SCALE, RECEIVER_XZ_SCALE);
 		poseStack.translate(-0.5F, -0.5F, -0.5F);
-		chainState.minecartChain$receiverModel().submit(poseStack, submitNodeCollector, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
+		submitNodeCollector.submitBlock(poseStack, resolveReceiverBlock(), lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
 		poseStack.popPose();
 
-		// Antenna rod
-		if (!chainState.minecartChain$antennaModel().isEmpty()) {
-			poseStack.pushPose();
-			poseStack.translate(0.52F, 0.72F, 0.22F);
-			poseStack.scale(0.12F, 0.45F, 0.12F);
-			poseStack.translate(-0.5F, -0.5F, -0.5F);
-			chainState.minecartChain$antennaModel().submit(poseStack, submitNodeCollector, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
-			poseStack.popPose();
-		}
-	}
-
-	private static Vec3 minecartChain$visualPosition(final AbstractMinecart cart, final float tickProgress) {
-		if (cart.getBehavior() instanceof NewMinecartBehavior newBehavior && newBehavior.cartHasPosRotLerp()) {
-			Vec3 lerpPos = newBehavior.getCartLerpPosition(tickProgress);
-			if (lerpPos != null) {
-				return lerpPos;
-			}
-		} else if (cart.getBehavior() instanceof OldMinecartBehavior oldBehavior) {
-			double x = Mth.lerp(tickProgress, cart.xo, cart.getX());
-			double y = Mth.lerp(tickProgress, cart.yo, cart.getY());
-			double z = Mth.lerp(tickProgress, cart.zo, cart.getZ());
-			Vec3 railPos = oldBehavior.getPos(x, y, z);
-			if (railPos != null) {
-				return railPos;
-			}
-		}
-		return cart.getPosition(tickProgress);
+		poseStack.pushPose();
+		poseStack.translate(0.0F, ANTENNA_Y, RECEIVER_Z);
+		poseStack.scale(ANTENNA_XZ_SCALE, ANTENNA_Y_SCALE, ANTENNA_XZ_SCALE);
+		poseStack.translate(-0.5F, -0.5F, -0.5F);
+		submitNodeCollector.submitBlock(poseStack, ANTENNA_BLOCK, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
+		poseStack.popPose();
 	}
 
 	private void minecartChain$appendChainOffset(
-		final AbstractMinecart minecart,
+		final T minecart,
 		final MinecartChainRenderState chainState,
-		final Optional<UUID> linkedId,
+		final UUID linkedId,
 		final float tickProgress
 	) {
-		if (linkedId.isEmpty() || minecart.getUUID().compareTo(linkedId.get()) >= 0) {
+		if (linkedId == null) {
 			return;
 		}
 
-		Entity linkedEntity = minecart.level().getEntity(linkedId.get());
+		Minecraft client = Minecraft.getInstance();
+		if (client.level == null) {
+			return;
+		}
+
+		Entity linkedEntity = client.level.getEntity(linkedId);
 		if (!(linkedEntity instanceof AbstractMinecart linkedMinecart)) {
 			return;
 		}
 
-		Vec3 myPos = minecartChain$visualPosition(minecart, tickProgress);
-		Vec3 linkedPos = minecartChain$visualPosition(linkedMinecart, tickProgress);
-		Vec3 offset = linkedPos.subtract(myPos);
-		if (offset.horizontalDistanceSqr() <= 0.04D || offset.lengthSqr() > 144.0D) {
+		if (minecart.getId() > linkedMinecart.getId()) {
 			return;
 		}
 
-		chainState.minecartChain$chainOffsets().add(offset);
+		Vec3 selfPos = minecart.getPosition(tickProgress);
+		Vec3 targetPos = linkedMinecart.getPosition(tickProgress);
+		chainState.minecartChain$addChainOffset(targetPos.subtract(selfPos));
 	}
 
-	private void minecartChain$submitChain(
+	private void minecartChain$submitChainSegments(
 		final Vec3 offset,
-		final MinecartChainRenderState chainState,
 		final PoseStack poseStack,
 		final SubmitNodeCollector submitNodeCollector,
 		final int lightCoords,
 		final int outlineColor
 	) {
-		double length = offset.length();
-		double visibleLength = length - CHAIN_ATTACHMENT_OFFSET * 2.0D;
-		if (visibleLength <= 0.05D) {
+		double horizontalDistance = Math.sqrt(offset.x * offset.x + offset.z * offset.z);
+		if (horizontalDistance < 1.0E-4D) {
 			return;
 		}
 
-		Vec3 direction = offset.scale(1.0D / length);
-		float yaw = (float) (Mth.atan2(direction.x, direction.z) * Mth.RAD_TO_DEG);
-		double horizontalDist = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
-		float pitch = (float) (Mth.atan2(direction.y, horizontalDist) * Mth.RAD_TO_DEG);
-
-		int segments = Math.max(1, (int) Math.ceil(visibleLength / CHAIN_SEGMENT_SPACING));
-		double step = visibleLength / segments;
-		BlockModelRenderState chainModel = chainState.minecartChain$chainZModel();
+		Vec3 direction = offset.normalize();
+		double totalDistance = offset.length();
+		double span = Math.max(0.0D, totalDistance - CHAIN_ATTACHMENT_OFFSET * 2.0D);
+		int segments = Math.max(1, (int) Math.round(span / 0.18D));
+		double step = span / segments;
+		float yaw = (float) (Mth.atan2(direction.z, direction.x) * (180.0D / Math.PI)) + 90.0F;
+		float pitch = (float) (Math.asin(direction.y) * (180.0D / Math.PI));
 
 		for (int i = 0; i < segments; i++) {
 			double distance = CHAIN_ATTACHMENT_OFFSET + (i + 0.5D) * step;
 			Vec3 position = direction.scale(distance).add(0.0D, CHAIN_HEIGHT, 0.0D);
 			poseStack.pushPose();
 			poseStack.translate(position.x, position.y, position.z);
-			poseStack.rotateDegrees(Axis.YP, yaw);
-			poseStack.rotateDegrees(Axis.XP, -pitch);
+			poseStack.mulPose(Axis.YP.rotationDegrees(yaw));
+			poseStack.mulPose(Axis.XP.rotationDegrees(-pitch));
 			poseStack.scale(CHAIN_SEGMENT_SCALE, CHAIN_SEGMENT_SCALE, CHAIN_SEGMENT_SCALE);
 			poseStack.translate(-0.5F, -0.5F, -0.5F);
-			chainModel.submit(poseStack, submitNodeCollector, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
+			submitNodeCollector.submitBlock(poseStack, CHAIN_Z_BLOCK, lightCoords, OverlayTexture.NO_OVERLAY, outlineColor);
 			poseStack.popPose();
 		}
 	}

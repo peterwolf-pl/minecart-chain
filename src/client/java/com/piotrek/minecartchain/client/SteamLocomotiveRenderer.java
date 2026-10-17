@@ -9,7 +9,8 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
@@ -67,11 +68,11 @@ public class SteamLocomotiveRenderer extends EntityRenderer<SteamLocomotiveEntit
 		// passenger yaw to 90, same as a vanilla minecart. Subtracting facingYaw here
 		// rotates E-W locomotives 90° off the ties. Match the minecart inner yaw (90).
 		float yawRot = state.onSpline ? 90.0F : (270.0F - state.yaw);
-		poseStack.rotateDegrees(Axis.YP, yawRot);
-		poseStack.rotateDegrees(Axis.XP, -state.pitch);
-		poseStack.rotateDegrees(Axis.ZP, state.roll);
+		poseStack.mulPose(Axis.YP.rotationDegrees(yawRot));
+		poseStack.mulPose(Axis.XP.rotationDegrees(-state.pitch));
+		poseStack.mulPose(Axis.ZP.rotationDegrees(state.roll));
 		poseStack.scale(-1.0F, -1.0F, 1.0F);
-		collector.submitModel(this.model, state, poseStack, TEXTURE, state.lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);
+		collector.submitModel(this.model, state, poseStack, RenderTypes.entityCutout(TEXTURE), state.lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor, null);
 		poseStack.popPose();
 	}
 }

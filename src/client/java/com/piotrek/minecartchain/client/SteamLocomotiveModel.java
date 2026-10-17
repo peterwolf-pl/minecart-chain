@@ -56,10 +56,10 @@ public class SteamLocomotiveModel extends EntityModel<SteamLocomotiveRenderState
 				// Główna rama podwozia (długość 44, szerokość 14, wysokość 2) -> -22.0F do +22.0F
 				.texOffs(0, 0).addBox(-22.0F, 0.0F, -7.0F, 44.0F, 2.0F, 14.0F)
 				// Przednia belka zderzakowa z lemieszem / sprzęgiem
-				.texOffs(92, 0).addBox(-23.0F, -2.0F, -7.5F, 1.0F, 5.0F, 15.0F)
-				.texOffs(92, 20).addBox(-24.5F, -1.0F, -4.5F, 1.5F, 4.0F, 9.0F)
+				.texOffs(160, 0).addBox(-23.0F, -2.0F, -7.5F, 1.0F, 5.0F, 15.0F)
+				.texOffs(160, 28).addBox(-24.5F, -1.0F, -4.5F, 1.5F, 4.0F, 9.0F)
 				// Tylna belka zderzakowa
-				.texOffs(92, 20).addBox(22.0F, -2.0F, -7.5F, 1.0F, 5.0F, 15.0F),
+				.texOffs(200, 0).addBox(22.0F, -2.0F, -7.5F, 1.0F, 5.0F, 15.0F),
 			PartPose.ZERO
 		);
 
@@ -68,20 +68,20 @@ public class SteamLocomotiveModel extends EntityModel<SteamLocomotiveRenderState
 			"boiler",
 			CubeListBuilder.create()
 				// Główny walczak kotła (długość 28: -22 do +6, wysokość 15, szerokość 14)
-				.texOffs(0, 18).addBox(-22.0F, -15.0F, -6.0F, 28.0F, 15.0F, 12.0F)
+				.texOffs(0, 48).addBox(-22.0F, -15.0F, -6.0F, 28.0F, 15.0F, 12.0F)
 				// Zaokrąglenie wierzchu i boków kotła
-				.texOffs(0, 18).addBox(-22.0F, -16.0F, -5.0F, 28.0F, 1.0F, 10.0F)
+				.texOffs(88, 48).addBox(-22.0F, -16.0F, -5.0F, 28.0F, 1.0F, 10.0F)
 				// Dymnica z przodu z drzwiami okrągłymi
-				.texOffs(62, 18).addBox(-22.5F, -14.0F, -5.0F, 0.5F, 13.0F, 10.0F)
+				.texOffs(0, 80).addBox(-22.5F, -14.0F, -5.0F, 0.5F, 13.0F, 10.0F)
 				// Reflektor główny (latarnia parowozu)
-				.texOffs(80, 18).addBox(-24.5F, -17.0F, -2.0F, 2.0F, 4.0F, 4.0F)
+				.texOffs(168, 48).addBox(-24.5F, -17.0F, -2.0F, 2.0F, 4.0F, 4.0F)
 				// Komin (wysoki, proporcjonalny, z obwódką)
-				.texOffs(0, 40).addBox(-18.0F, -25.0F, -2.0F, 4.0F, 9.0F, 4.0F)
-				.texOffs(14, 40).addBox(-18.5F, -26.0F, -2.5F, 5.0F, 1.0F, 5.0F)
+				.texOffs(188, 48).addBox(-18.0F, -25.0F, -2.0F, 4.0F, 9.0F, 4.0F)
+				.texOffs(168, 64).addBox(-18.5F, -26.0F, -2.5F, 5.0F, 1.0F, 5.0F)
 				// Kołpak pary (Steam dome)
-				.texOffs(32, 40).addBox(-10.0F, -20.0F, -2.5F, 5.0F, 4.0F, 5.0F)
+				.texOffs(200, 64).addBox(-10.0F, -20.0F, -2.5F, 5.0F, 4.0F, 5.0F)
 				// Piasecznica (Sand dome)
-				.texOffs(46, 40).addBox(-1.0F, -19.5F, -2.0F, 4.0F, 3.5F, 4.0F),
+				.texOffs(224, 64).addBox(-1.0F, -19.5F, -2.0F, 4.0F, 3.5F, 4.0F),
 			PartPose.ZERO
 		);
 
@@ -90,25 +90,25 @@ public class SteamLocomotiveModel extends EntityModel<SteamLocomotiveRenderState
 			"cab",
 			CubeListBuilder.create()
 				// Przednia ściana kabiny z oknem na wprost nad kotłem
-				.texOffs(60, 40).addBox(6.0F, -26.0F, -7.0F, 1.0F, 3.0F, 14.0F)
-				.texOffs(60, 40).addBox(6.0F, -15.0F, -7.0F, 1.0F, 15.0F, 14.0F)
-				.texOffs(60, 40).addBox(6.0F, -23.0F, -7.0F, 1.0F, 8.0F, 3.0F)
-				.texOffs(60, 40).addBox(6.0F, -23.0F, 4.0F, 1.0F, 8.0F, 3.0F)
+				.texOffs(0, 108).addBox(6.0F, -26.0F, -7.0F, 1.0F, 3.0F, 14.0F)
+				.texOffs(32, 108).addBox(6.0F, -15.0F, -7.0F, 1.0F, 15.0F, 14.0F)
+				.texOffs(64, 108).addBox(6.0F, -23.0F, -7.0F, 1.0F, 8.0F, 3.0F)
+				.texOffs(76, 108).addBox(6.0F, -23.0F, 4.0F, 1.0F, 8.0F, 3.0F)
 				// Lewa ściana kabiny z oknem bocznym
-				.texOffs(0, 72).addBox(7.0F, -26.0F, -7.0F, 15.0F, 3.0F, 1.0F)
-				.texOffs(0, 72).addBox(7.0F, -11.0F, -7.0F, 15.0F, 11.0F, 1.0F)
-				.texOffs(0, 72).addBox(7.0F, -23.0F, -7.0F, 2.0F, 12.0F, 1.0F)
-				.texOffs(0, 72).addBox(19.0F, -23.0F, -7.0F, 3.0F, 12.0F, 1.0F)
+				.texOffs(0, 140).addBox(7.0F, -26.0F, -7.0F, 15.0F, 3.0F, 1.0F)
+				.texOffs(40, 140).addBox(7.0F, -11.0F, -7.0F, 15.0F, 11.0F, 1.0F)
+				.texOffs(80, 140).addBox(7.0F, -23.0F, -7.0F, 2.0F, 12.0F, 1.0F)
+				.texOffs(90, 140).addBox(19.0F, -23.0F, -7.0F, 3.0F, 12.0F, 1.0F)
 				// Prawa ściana kabiny z oknem bocznym
-				.texOffs(0, 72).addBox(7.0F, -26.0F, 6.0F, 15.0F, 3.0F, 1.0F)
-				.texOffs(0, 72).addBox(7.0F, -11.0F, 6.0F, 15.0F, 11.0F, 1.0F)
-				.texOffs(0, 72).addBox(7.0F, -23.0F, 6.0F, 2.0F, 12.0F, 1.0F)
-				.texOffs(0, 72).addBox(19.0F, -23.0F, 6.0F, 3.0F, 12.0F, 1.0F)
+				.texOffs(0, 156).addBox(7.0F, -26.0F, 6.0F, 15.0F, 3.0F, 1.0F)
+				.texOffs(40, 156).addBox(7.0F, -11.0F, 6.0F, 15.0F, 11.0F, 1.0F)
+				.texOffs(80, 156).addBox(7.0F, -23.0F, 6.0F, 2.0F, 12.0F, 1.0F)
+				.texOffs(90, 156).addBox(19.0F, -23.0F, 6.0F, 3.0F, 12.0F, 1.0F)
 				// Dach kabiny
-				.texOffs(0, 72).addBox(5.0F, -27.5F, -8.0F, 18.0F, 1.5F, 16.0F)
+				.texOffs(0, 172).addBox(5.0F, -27.5F, -8.0F, 18.0F, 1.5F, 16.0F)
 				// Tylne wejściowe słupki narożne
-				.texOffs(58, 72).addBox(21.0F, -26.0F, -7.0F, 1.0F, 26.0F, 3.0F)
-				.texOffs(68, 72).addBox(21.0F, -26.0F, 4.0F, 1.0F, 26.0F, 3.0F),
+				.texOffs(80, 172).addBox(21.0F, -26.0F, -7.0F, 1.0F, 26.0F, 3.0F)
+				.texOffs(96, 172).addBox(21.0F, -26.0F, 4.0F, 1.0F, 26.0F, 3.0F),
 			PartPose.ZERO
 		);
 
@@ -117,11 +117,11 @@ public class SteamLocomotiveModel extends EntityModel<SteamLocomotiveRenderState
 			"interior",
 			CubeListBuilder.create()
 				// Podłoga budki maszynisty
-				.texOffs(0, 90).addBox(7.0F, 0.0F, -6.0F, 14.0F, 1.0F, 12.0F)
+				.texOffs(120, 108).addBox(7.0F, 0.0F, -6.0F, 14.0F, 1.0F, 12.0F)
 				// Tył kotła / ściana sitowa z paleniskiem i zegarami
-				.texOffs(46, 94).addBox(6.5F, -15.0F, -5.0F, 3.0F, 15.0F, 10.0F)
+				.texOffs(120, 128).addBox(6.5F, -15.0F, -5.0F, 3.0F, 15.0F, 10.0F)
 				// Ławka maszynisty (obniżona, dopasowana do siedzącego gracza)
-				.texOffs(70, 94).addBox(12.0F, -2.0F, -5.0F, 8.0F, 2.0F, 10.0F),
+				.texOffs(160, 128).addBox(12.0F, -2.0F, -5.0F, 8.0F, 2.0F, 10.0F),
 			PartPose.ZERO
 		);
 
@@ -129,17 +129,17 @@ public class SteamLocomotiveModel extends EntityModel<SteamLocomotiveRenderState
 		root.addOrReplaceChild(
 			"coupler_lever",
 			CubeListBuilder.create()
-				.texOffs(86, 94).addBox(-0.5F, -0.5F, -0.5F, 1.0F, 1.0F, 1.0F)
-				.texOffs(90, 94).addBox(-0.5F, -5.5F, -0.5F, 1.0F, 5.0F, 1.0F),
+				.texOffs(210, 128).addBox(-0.5F, -0.5F, -0.5F, 1.0F, 1.0F, 1.0F)
+				.texOffs(216, 128).addBox(-0.5F, -5.5F, -0.5F, 1.0F, 5.0F, 1.0F),
 			PartPose.offset(10.0F, -7.0F, 0.0F)
 		);
 
 		// 5. Wheels (8 dużych kół napędowych, proporcjonalne do dłuższego parowozu)
 		final CubeListBuilder wheelBuilder = CubeListBuilder.create()
-			.texOffs(0, 106).addBox(-4.0F, -4.0F, -0.4F, 8.0F, 8.0F, 0.8F)
-			.texOffs(0, 106).addBox(-4.5F, -2.5F, -0.2F, 9.0F, 5.0F, 0.4F)
-			.texOffs(0, 106).addBox(-2.5F, -4.5F, -0.2F, 5.0F, 9.0F, 0.4F)
-			.texOffs(0, 106).addBox(-0.6F, -0.6F, -0.6F, 1.2F, 1.2F, 0.3F);
+			.texOffs(0, 208).addBox(-4.0F, -4.0F, -0.4F, 8.0F, 8.0F, 0.8F)
+			.texOffs(24, 208).addBox(-4.5F, -2.5F, -0.2F, 9.0F, 5.0F, 0.4F)
+			.texOffs(24, 220).addBox(-2.5F, -4.5F, -0.2F, 5.0F, 9.0F, 0.4F)
+			.texOffs(168, 80).addBox(-0.6F, -0.6F, -0.6F, 1.2F, 1.2F, 0.3F);
 
 		root.addOrReplaceChild("wheel_left_front", wheelBuilder, PartPose.offset(-15.0F, 2.0F, -6.0F));
 		root.addOrReplaceChild("wheel_left_center", wheelBuilder, PartPose.offset(-5.0F, 2.0F, -6.0F));
@@ -152,16 +152,16 @@ public class SteamLocomotiveModel extends EntityModel<SteamLocomotiveRenderState
 		// 6. Wiązary / Drągi napędowe łączące koła
 		root.addOrReplaceChild(
 			"rod_left",
-			CubeListBuilder.create().texOffs(20, 114).addBox(-11.0F, -0.6F, -0.4F, 22.0F, 1.2F, 0.8F),
+			CubeListBuilder.create().texOffs(48, 208).addBox(-11.0F, -0.6F, -0.4F, 22.0F, 1.2F, 0.8F),
 			PartPose.offset(-5.0F, 2.0F, -6.8F)
 		);
 		root.addOrReplaceChild(
 			"rod_right",
-			CubeListBuilder.create().texOffs(20, 118).addBox(-11.0F, -0.6F, -0.4F, 22.0F, 1.2F, 0.8F),
+			CubeListBuilder.create().texOffs(48, 214).addBox(-11.0F, -0.6F, -0.4F, 22.0F, 1.2F, 0.8F),
 			PartPose.offset(-5.0F, 2.0F, 6.8F)
 		);
 
-		return LayerDefinition.create(mesh, 128, 128);
+		return LayerDefinition.create(mesh, 256, 256);
 	}
 
 	@Override

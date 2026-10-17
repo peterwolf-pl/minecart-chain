@@ -1,28 +1,9 @@
 package com.piotrek.minecartchain.client;
 
 import java.util.List;
-import net.minecraft.client.renderer.block.BlockModelRenderState;
 import net.minecraft.world.phys.Vec3;
 
 public interface MinecartChainRenderState {
-	BlockModelRenderState minecartChain$leverModel();
-
-	BlockModelRenderState minecartChain$throttleLeverModel();
-
-	BlockModelRenderState minecartChain$directionLeverModel();
-
-	BlockModelRenderState minecartChain$brakeBaseModel();
-
-	BlockModelRenderState minecartChain$directionBaseModel();
-
-	BlockModelRenderState minecartChain$throttleBaseModel();
-
-	BlockModelRenderState minecartChain$chimneyModel();
-
-	BlockModelRenderState minecartChain$chainXModel();
-
-	BlockModelRenderState minecartChain$chainZModel();
-
 	boolean minecartChain$hasLever();
 
 	void minecartChain$setHasLever(boolean hasLever);
@@ -31,9 +12,9 @@ public interface MinecartChainRenderState {
 
 	void minecartChain$setRadioLocomotive(boolean radioLocomotive);
 
-	BlockModelRenderState minecartChain$receiverModel();
+	boolean minecartChain$isEngineActive();
 
-	BlockModelRenderState minecartChain$antennaModel();
+	void minecartChain$setEngineActive(boolean engineActive);
 
 	boolean minecartChain$isFullThrottle();
 
@@ -49,7 +30,7 @@ public interface MinecartChainRenderState {
 
 	float minecartChain$getLocomotiveYaw();
 
-	void minecartChain$setLocomotiveYaw(float yaw);
+	void minecartChain$setLocomotiveYaw(float locomotiveYaw);
 
 	boolean minecartChain$isMountedTrack();
 
@@ -62,4 +43,6 @@ public interface MinecartChainRenderState {
 	List<Vec3> minecartChain$chainOffsets();
 
 	void minecartChain$clearChainOffsets();
+
+	void minecartChain$addChainOffset(Vec3 offset);
 }

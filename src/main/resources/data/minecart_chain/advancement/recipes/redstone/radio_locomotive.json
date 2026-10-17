@@ -23,7 +23,7 @@
     },
     "has_the_recipe": {
       "conditions": {
-        "recipes": "minecart_chain:radio_locomotive"
+        "recipe": "minecart_chain:radio_locomotive"
       },
       "trigger": "minecraft:recipe_unlocked"
     }

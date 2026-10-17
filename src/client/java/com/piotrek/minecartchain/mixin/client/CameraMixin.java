@@ -4,6 +4,7 @@ import com.piotrek.minecartchain.SteamLocomotiveEntity;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.phys.Vec3;
@@ -14,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(value = Camera.class, priority = 1500)
+@Mixin(value = Camera.class, priority = 2000)
 public abstract class CameraMixin {
 	@Unique
 	private static final float LEAN_OFFSET = 0.7F;
@@ -35,22 +36,35 @@ public abstract class CameraMixin {
 	@Unique
 	private float minecartChain$lean;
 
-	@Inject(method = "alignWithEntity", at = @At("TAIL"))
-	private void minecartChain$handleCamera(final float partialTicks, final CallbackInfo ci) {
+	@Unique
+	private float minecartChain$cabYaw;
+
+	@Unique
+	private boolean minecartChain$hasCabYaw;
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void minecartChain$handleCamera(
+		final net.minecraft.world.level.Level level,
+		final Entity entity,
+		final boolean detached,
+		final boolean mirrored,
+		final float partialTicks,
+		final CallbackInfo ci
+	) {
 		if (!(this.entity instanceof LocalPlayer player) || !(player.getVehicle() instanceof AbstractMinecart)) {
 			this.minecartChain$lean = 0.0F;
+			this.minecartChain$hasCabYaw = false;
 			return;
 		}
 
 		Minecraft minecraft = Minecraft.getInstance();
 
 		if (player.getVehicle() instanceof SteamLocomotiveEntity locomotive) {
-			Vec3 forward = locomotive.getVisualForward();
+			Vec3 forward = minecartChain$smoothedForward(locomotive);
 			Vec3 rear = forward.scale(-1.0D);
 			Vec3 locoPos = locomotive.getPosition(partialTicks);
 
 			if (minecraft.options.getCameraType().isFirstPerson()) {
-				// Handle A/D lean
 				int targetLean = 0;
 				if (minecraft.options.keyLeft.isDown()) {
 					targetLean--;
@@ -60,22 +74,20 @@ public abstract class CameraMixin {
 				}
 				this.minecartChain$lean += (targetLean - this.minecartChain$lean) * LEAN_SMOOTHING;
 
-				// Place eyes inside the driver's cab, looking out through the front opening and side windows
+				// Same cab seat as before: 0.80 behind the boiler, eyes at window height.
+				// Yaw is smoothed so a curve does not snap this offset between packets.
 				this.setPosition(locoPos.add(rear.scale(0.80D)).add(0.0D, 1.55D, 0.0D));
 
 				if (Math.abs(this.minecartChain$lean) >= 0.01F) {
 					this.move(0.0F, Math.abs(this.minecartChain$lean) * LEAN_RAISE, this.minecartChain$lean * LEAN_OFFSET);
 				}
 			} else {
-				// Third person (F5) - anchor high above the locomotive to bypass cab clipping and Splinecart eye override
 				this.minecartChain$lean = 0.0F;
 				this.setPosition(locoPos.add(0.0D, 1.8D, 0.0D));
 
 				if (minecraft.options.getCameraType() == net.minecraft.client.CameraType.THIRD_PERSON_BACK) {
-					// Orbit safely behind the locomotive
 					this.move(-6.2F, 0.8F, 0.0F);
 				} else if (minecraft.options.getCameraType() == net.minecraft.client.CameraType.THIRD_PERSON_FRONT) {
-					// Orbit safely in front of the locomotive
 					this.move(6.2F, 0.8F, 0.0F);
 				}
 			}
@@ -97,6 +109,27 @@ public abstract class CameraMixin {
 			}
 		} else {
 			this.minecartChain$lean = 0.0F;
+			this.minecartChain$hasCabYaw = false;
 		}
+	}
+
+	@Unique
+	private Vec3 minecartChain$smoothedForward(final SteamLocomotiveEntity locomotive) {
+		float target = locomotive.getFacingYaw();
+		if (!this.minecartChain$hasCabYaw) {
+			this.minecartChain$cabYaw = target;
+			this.minecartChain$hasCabYaw = true;
+		} else {
+			float diff = Mth.wrapDegrees(target - this.minecartChain$cabYaw);
+			if (Math.abs(diff) > 110.0F) {
+				this.minecartChain$cabYaw = target;
+			} else {
+				float dt = Minecraft.getInstance().getDeltaTracker().getRealtimeDeltaTicks();
+				float alpha = 1.0F - (float) Math.exp(-Math.max(0.0F, dt) * 8.0F);
+				this.minecartChain$cabYaw = Mth.wrapDegrees(this.minecartChain$cabYaw + diff * alpha);
+			}
+		}
+		double yawRad = Math.toRadians(this.minecartChain$cabYaw);
+		return new Vec3(-Math.sin(yawRad), 0.0D, Math.cos(yawRad));
 	}
 }

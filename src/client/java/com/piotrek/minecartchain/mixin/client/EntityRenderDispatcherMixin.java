@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(EntityRenderDispatcher.class)
 public abstract class EntityRenderDispatcherMixin {
 	@Inject(
-		method = "shouldRender(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/culling/Frustum;DDDF)Z",
+		method = "shouldRender(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/culling/Frustum;DDD)Z",
 		at = @At("HEAD"),
 		cancellable = true
 	)
@@ -24,7 +24,6 @@ public abstract class EntityRenderDispatcherMixin {
 		final double camX,
 		final double camY,
 		final double camZ,
-		final float partialTick,
 		final CallbackInfoReturnable<Boolean> cir
 	) {
 		Minecraft client = Minecraft.getInstance();

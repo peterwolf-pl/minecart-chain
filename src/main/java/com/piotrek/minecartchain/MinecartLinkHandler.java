@@ -20,13 +20,11 @@ import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
-import net.minecraft.util.Prediction;
 
 public final class MinecartLinkHandler {
-	private static final double MAX_LINK_DISTANCE = 2.0D;
+	private static final double MAX_LINK_DISTANCE = 3.25D;
 	private static final Map<UUID, UUID> SELECTED_CARTS = new HashMap<>();
 
 	private MinecartLinkHandler() {
@@ -49,6 +47,36 @@ public final class MinecartLinkHandler {
 				handleChainUse(player, level, hand, minecart, stack);
 			}
 			return InteractionResult.SUCCESS;
+		}
+
+		if (minecart instanceof SteamLocomotiveEntity locomotive) {
+			MinecartChainAccess data = (MinecartChainAccess) locomotive;
+
+			if (!data.minecartChain$isRadioLocomotive() && RadioLocomotiveCompat.isReceiverItem(stack)) {
+				if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
+					data.minecartChain$setRadioLocomotive(true);
+					data.minecartChain$setEngineLever(true);
+					data.minecartChain$setEngineActive(false);
+					data.minecartChain$setThrottleChannel(0);
+					data.minecartChain$setReverseChannel(1);
+					data.minecartChain$setArmed(false);
+					if (!player.hasInfiniteMaterials()) {
+						stack.shrink(1);
+					}
+					play(level, locomotive, SoundEvents.ARMOR_EQUIP_IRON.value(), 1.0F, 1.0F);
+					send(serverPlayer, "Installed receiver module. Radio steam locomotive ready.");
+				}
+				return InteractionResult.SUCCESS;
+			}
+
+			if (data.minecartChain$isRadioLocomotive()) {
+				if (player.isSecondaryUseActive() || stack.isEmpty()) {
+					if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
+						RadioLocomotiveMenu.open(serverPlayer, locomotive);
+					}
+					return InteractionResult.SUCCESS;
+				}
+			}
 		}
 
 		if (minecart instanceof MinecartFurnace furnace) {
@@ -80,7 +108,7 @@ public final class MinecartLinkHandler {
 					return InteractionResult.SUCCESS;
 				}
 
-				if (MinecartLocomotiveResources.isCookingFuel(stack)) {
+				if (MinecartLocomotiveResources.isCookingFuel(level, stack)) {
 					if (!level.isClientSide()) {
 						handleFuelUse(player, level, hand, furnace, stack);
 					}
@@ -100,7 +128,7 @@ public final class MinecartLinkHandler {
 				return InteractionResult.SUCCESS;
 			}
 
-			if (MinecartLocomotiveResources.isCookingFuel(stack)) {
+			if (MinecartLocomotiveResources.isCookingFuel(level, stack)) {
 				if (!level.isClientSide()) {
 					handleFuelUse(player, level, hand, furnace, stack);
 				}
@@ -274,7 +302,7 @@ public final class MinecartLinkHandler {
 
 		if (selectedMinecart.distanceToSqr(minecart) > MAX_LINK_DISTANCE * MAX_LINK_DISTANCE) {
 			SELECTED_CARTS.remove(playerId);
-			send(serverPlayer, "Minecarts must be at most 2 blocks apart.");
+			send(serverPlayer, "Minecarts must be closer together to couple.");
 			return;
 		}
 
@@ -389,23 +417,64 @@ public final class MinecartLinkHandler {
 			return;
 		}
 
-		int refundedChains = links.size();
+		// Filter out permanent locomotive-tender links (cannot be severed with chain)
+		List<UUID> removableLinks = new java.util.ArrayList<>();
 		for (UUID linkId : links) {
+			if (isPermanentLink(level, minecart, linkId)) {
+				continue;
+			}
+			removableLinks.add(linkId);
+		}
+
+		if (removableLinks.isEmpty()) {
+			SELECTED_CARTS.remove(player.getUUID());
+			send(player, "Cannot remove permanent locomotive-tender link.");
+			return;
+		}
+
+		int refundedChains = removableLinks.size();
+		for (UUID linkId : removableLinks) {
 			Entity linkedEntity = level.getEntity(linkId);
 			if (linkedEntity instanceof AbstractMinecart linkedMinecart) {
 				((MinecartChainAccess) linkedMinecart).minecartChain$removeLink(minecart.getUUID());
 			}
+			data.minecartChain$removeLink(linkId);
 		}
-		data.minecartChain$clearLinks();
 		SELECTED_CARTS.remove(player.getUUID());
 		if (!player.hasInfiniteMaterials() && refundedChains > 0) {
 			ItemStack refund = new ItemStack(Items.IRON_CHAIN, refundedChains);
 			if (!player.getInventory().add(refund)) {
-				player.drop(refund, false, Prediction.SERVER_ONLY);
+				player.drop(refund, false);
 			}
 		}
 		play(level, minecart, SoundEvents.CHAIN_BREAK, 1.0F, 0.9F);
 		send(player, "Removed this minecart's chain links. Returned " + refundedChains + " iron chain(s).");
+	}
+
+	public static boolean isPermanentLink(final ServerLevel level, final AbstractMinecart minecart, final UUID linkId) {
+		if (minecart instanceof SteamLocomotiveEntity loco) {
+			if (loco.hasPermanentTender() && loco.getPermanentTenderId().filter(id -> id.equals(linkId)).isPresent()) {
+				return true;
+			}
+		}
+		if (minecart instanceof CoalTenderEntity tender) {
+			if (tender.hasPermanentLocomotive() && tender.getPermanentLocomotiveId().filter(id -> id.equals(linkId)).isPresent()) {
+				return true;
+			}
+		}
+		// Check the other side
+		Entity linkedEntity = level.getEntity(linkId);
+		if (linkedEntity instanceof SteamLocomotiveEntity loco) {
+			if (loco.hasPermanentTender() && loco.getPermanentTenderId().filter(id -> id.equals(minecart.getUUID())).isPresent()) {
+				return true;
+			}
+		}
+		if (linkedEntity instanceof CoalTenderEntity tender) {
+			if (tender.hasPermanentLocomotive() && tender.getPermanentLocomotiveId().filter(id -> id.equals(minecart.getUUID())).isPresent()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static List<UUID> linkedIds(final MinecartChainAccess data) {
@@ -429,17 +498,17 @@ public final class MinecartLinkHandler {
 		}
 
 		Item item = stack.getItem();
-		ItemStackTemplate remainderTemplate = item.getCraftingRemainder();
+		ItemStack remainder = item.getCraftingRemainder();
 		stack.consume(1, player);
-		if (remainderTemplate == null) {
+		if (remainder == null || remainder.isEmpty()) {
 			return;
 		}
 
-		ItemStack remainder = remainderTemplate.create();
+		remainder = remainder.copy();
 		if (stack.isEmpty()) {
 			player.setItemInHand(hand, remainder);
 		} else if (!player.getInventory().add(remainder)) {
-			player.drop(remainder, false, Prediction.SERVER_ONLY);
+			player.drop(remainder, false);
 		}
 	}
 

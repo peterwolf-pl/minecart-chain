@@ -5,14 +5,17 @@
 	"mixins": [
 		"AbstractMinecartMixin",
 		"MinecartFurnaceMixin",
-		"NewMinecartBehaviorMixin"
+		"NewMinecartBehaviorMixin",
+		"OldMinecartBehaviorMixin",
+		"LocomotiveLeverReachMixin"
 	],
 	"client": [
 		"client.AbstractMinecartRendererMixin",
 		"client.CameraMixin",
 		"client.EntityRenderDispatcherMixin",
 		"client.LocalPlayerMinecartLookMixin",
-		"client.MinecartRenderStateMixin"
+		"client.MinecartRenderStateMixin",
+		"client.LocomotiveLeverInteractionMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -4,7 +4,7 @@ import com.piotrek.minecartchain.RadioLocomotiveJumperPayload;
 import com.piotrek.minecartchain.RadioLocomotiveMenu;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -70,7 +70,9 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 	private static final int WATER_BAR_BG = 0xFF1F2A44;
 
 	public RadioLocomotiveScreen(final RadioLocomotiveMenu menu, final Inventory inventory, final Component title) {
-		super(menu, inventory, title, SCREEN_WIDTH, SCREEN_HEIGHT);
+		super(menu, inventory, title);
+		this.imageWidth = SCREEN_WIDTH;
+		this.imageHeight = SCREEN_HEIGHT;
 	}
 
 	@Override
@@ -127,16 +129,21 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 	}
 
 	@Override
-	public void extractBackground(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float tickProgress) {
-		super.extractBackground(graphics, mouseX, mouseY, tickProgress);
+	public void render(final GuiGraphics graphics, final int mouseX, final int mouseY, final float tickProgress) {
+		super.render(graphics, mouseX, mouseY, tickProgress);
+		this.renderTooltip(graphics, mouseX, mouseY);
+	}
+
+	@Override
+	protected void renderBg(final GuiGraphics graphics, final float tickProgress, final int mouseX, final int mouseY) {
 		int x = this.leftPos;
 		int y = this.topPos;
 
 		// 1. Outer dark steel panel
 		graphics.fill(x, y, x + SCREEN_WIDTH, y + 128, 0xFF1C1F22);
-		graphics.outline(x, y, SCREEN_WIDTH, 128, 0xFF0D0F11);
-		graphics.horizontalLine(x, x + SCREEN_WIDTH - 1, y, 0xFF363B40);
-		graphics.verticalLine(x, y, y + 127, 0xFF363B40);
+		graphics.renderOutline(x, y, SCREEN_WIDTH, 128, 0xFF0D0F11);
+		graphics.hLine(x, x + SCREEN_WIDTH - 1, y, 0xFF363B40);
+		graphics.vLine(x, y, y + 127, 0xFF363B40);
 
 		// 2. Draw Left TX/RX Module (Throttle / Potentiometer)
 		this.drawTxRxBlockPad(graphics, x + THROTTLE_MOD_X, y + MODULE_Y, false);
@@ -193,14 +200,14 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 	}
 
 	private void drawTxRxBlockPad(
-		final GuiGraphicsExtractor graphics,
+		final GuiGraphics graphics,
 		final int bx,
 		final int by,
 		final boolean isReverse
 	) {
 		// A. White wool carpet base (outer border)
 		graphics.fill(bx, by, bx + MODULE_WIDTH, by + MODULE_HEIGHT, COLOR_WOOL_BASE);
-		graphics.outline(bx, by, MODULE_WIDTH, MODULE_HEIGHT, COLOR_WOOL_BORDER);
+		graphics.renderOutline(bx, by, MODULE_WIDTH, MODULE_HEIGHT, COLOR_WOOL_BORDER);
 
 		// Subtle noise / wool border shadow
 		graphics.fill(bx + 1, by + 1, bx + MODULE_WIDTH - 1, by + MODULE_HEIGHT - 1, 0xFFEDEDED);
@@ -211,13 +218,13 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 		int pw = MODULE_WIDTH - 6;
 		int ph = MODULE_HEIGHT - 6;
 		graphics.fill(px, py, px + pw, py + ph, COLOR_PCB_BG);
-		graphics.outline(px, py, pw, ph, COLOR_PCB_BORDER);
+		graphics.renderOutline(px, py, pw, ph, COLOR_PCB_BORDER);
 
 		// C. Copper traces on PCB
-		graphics.horizontalLine(px + 4, px + pw - 5, py + 22, COLOR_COPPER_TRACE);
-		graphics.horizontalLine(px + 4, px + pw - 5, py + 43, COLOR_COPPER_TRACE);
-		graphics.verticalLine(px + 4, py + 6, py + ph - 6, COLOR_COPPER_TRACE);
-		graphics.verticalLine(px + pw - 5, py + 6, py + ph - 6, COLOR_COPPER_TRACE);
+		graphics.hLine(px + 4, px + pw - 5, py + 22, COLOR_COPPER_TRACE);
+		graphics.hLine(px + 4, px + pw - 5, py + 43, COLOR_COPPER_TRACE);
+		graphics.vLine(px + 4, py + 6, py + ph - 6, COLOR_COPPER_TRACE);
+		graphics.vLine(px + pw - 5, py + 6, py + ph - 6, COLOR_COPPER_TRACE);
 
 		// Gold contact pads near corners
 		graphics.fill(px + 2, py + 2, px + 5, py + 5, COLOR_GOLD_PAD);
@@ -234,11 +241,11 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 		}
 	}
 
-	private void drawCenterConsole(final GuiGraphicsExtractor graphics, final int x, final int y) {
+	private void drawCenterConsole(final GuiGraphics graphics, final int x, final int y) {
 		int cy = y + 92;
 		// Center recessed tray
 		graphics.fill(x + 10, cy, x + SCREEN_WIDTH - 10, cy + 32, 0xFF141619);
-		graphics.outline(x + 10, cy, SCREEN_WIDTH - 20, 32, 0xFF0B0C0E);
+		graphics.renderOutline(x + 10, cy, SCREEN_WIDTH - 20, 32, 0xFF0B0C0E);
 
 		boolean isLayout = this.menu.isLayoutMode();
 		int pwr = this.menu.throttlePower();
@@ -246,8 +253,8 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 		if (isLayout) {
 			boolean armed = this.menu.isArmed();
 			if (!armed) {
-				graphics.text(this.font, Component.literal("LOCKED: SET 50% TO ARM").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), x + 12, cy + 3, -1, false);
-				graphics.text(this.font, Component.literal("Knob at 12:00 unlocks drive").withStyle(ChatFormatting.GRAY), x + 12, cy + 14, -1, false);
+				graphics.drawString(this.font, Component.literal("LOCKED: SET 50% TO ARM").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), x + 12, cy + 3, -1, false);
+				graphics.drawString(this.font, Component.literal("Knob at 12:00 unlocks drive").withStyle(ChatFormatting.GRAY), x + 12, cy + 14, -1, false);
 			} else {
 				String modeDesc;
 				ChatFormatting modeColor;
@@ -263,7 +270,7 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 					modeDesc = "FWD " + fwdPct + "% [5:30]";
 					modeColor = ChatFormatting.GREEN;
 				}
-				graphics.text(this.font, Component.literal(modeDesc).withStyle(modeColor, ChatFormatting.BOLD), x + 12, cy + 3, -1, false);
+				graphics.drawString(this.font, Component.literal(modeDesc).withStyle(modeColor, ChatFormatting.BOLD), x + 12, cy + 3, -1, false);
 
 				// Mini 10-bar LED under throttle
 				int ledStartX = x + 12;
@@ -296,17 +303,17 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 				couplerText = Component.literal(links > 0 ? "UNCOUPLING..." : "○ UNCOUPLED (Signal LOW)")
 					.withStyle(ChatFormatting.GRAY);
 			}
-			graphics.text(this.font, couplerText, x + 110, cy + 3, -1, false);
+			graphics.drawString(this.font, couplerText, x + 110, cy + 3, -1, false);
 
 			String couplerHint = (couplerSig > 0)
 				? "Signal HIGH (Coupler ON)"
 				: "Signal LOW (Coupler OFF)";
-			graphics.text(this.font, Component.literal(couplerHint).withStyle(ChatFormatting.DARK_GRAY), x + 110, cy + 14, -1, false);
+			graphics.drawString(this.font, Component.literal(couplerHint).withStyle(ChatFormatting.DARK_GRAY), x + 110, cy + 14, -1, false);
 		} else {
 			// Classic mode readout
 			int pct = (int) Math.round((pwr / 15.0D) * 100.0D);
 			String pwrStr = "Pwr: " + pwr + "/15 (" + pct + "%)";
-			graphics.text(this.font, Component.literal(pwrStr).withStyle(ChatFormatting.GOLD), x + 12, cy + 3, -1, false);
+			graphics.drawString(this.font, Component.literal(pwrStr).withStyle(ChatFormatting.GOLD), x + 12, cy + 3, -1, false);
 
 			// Mini 10-bar LED under throttle
 			int ledStartX = x + 12;
@@ -328,10 +335,10 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 			} else {
 				status = Component.literal("► FORWARD ACTIVE").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
 			}
-			graphics.text(this.font, status, x + 110, cy + 3, -1, false);
+			graphics.drawString(this.font, status, x + 110, cy + 3, -1, false);
 
 			if (pending) {
-				graphics.text(
+				graphics.drawString(
 					this.font,
 					Component.literal("Signal ON, waiting for stop").withStyle(ChatFormatting.GRAY),
 					x + 110,
@@ -343,7 +350,7 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 		}
 	}
 
-	private void extractFuelBar(final GuiGraphicsExtractor graphics, final int x, final int y) {
+	private void extractFuelBar(final GuiGraphics graphics, final int x, final int y) {
 		int width = 14;
 		int height = 14;
 		graphics.fill(x, y, x + width, y + height, 0xFF2B1C10);
@@ -364,7 +371,7 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 		}
 	}
 
-	private void extractWaterBar(final GuiGraphicsExtractor graphics, final int x, final int y) {
+	private void extractWaterBar(final GuiGraphics graphics, final int x, final int y) {
 		int width = 14;
 		int height = 14;
 		int filledHeight = Mth.ceil(this.menu.waterProgress() * height);
@@ -375,8 +382,8 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 	}
 
 	@Override
-	protected void extractLabels(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY) {
-		super.extractLabels(graphics, mouseX, mouseY);
+	protected void renderLabels(final GuiGraphics graphics, final int mouseX, final int mouseY) {
+		super.renderLabels(graphics, mouseX, mouseY);
 
 		boolean isLayout = this.menu.isLayoutMode();
 
@@ -384,7 +391,7 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 		// Left: [RX] POTENTIOMETER / SPEED (CH: X)
 		int thCh = this.menu.throttleChannel();
 		String leftTitle = isLayout ? "[RX] SPEED (12/10/0)" : "[RX] POTENTIOMETER";
-		graphics.text(
+		graphics.drawString(
 			this.font,
 			Component.literal(leftTitle).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
 			THROTTLE_MOD_X + 6,
@@ -392,7 +399,7 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 			-1,
 			false
 		);
-		graphics.text(
+		graphics.drawString(
 			this.font,
 			Component.literal("CH: " + thCh + " ").withStyle(ChatFormatting.GOLD)
 				.append(getChannelDots(thCh)),
@@ -405,7 +412,7 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 		// Right: [RX] COUPLER / REVERSE (CH: X)
 		int revCh = this.menu.reverseChannel();
 		String rightTitle = isLayout ? "[RX] COUPLER (<2b)" : "[RX] REVERSE";
-		graphics.text(
+		graphics.drawString(
 			this.font,
 			Component.literal(rightTitle).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
 			REVERSE_MOD_X + 6,
@@ -413,7 +420,7 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 			-1,
 			false
 		);
-		graphics.text(
+		graphics.drawString(
 			this.font,
 			Component.literal("CH: " + revCh + " ").withStyle(ChatFormatting.AQUA)
 				.append(getChannelDots(revCh)),
@@ -424,8 +431,8 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 		);
 
 		// Refuel Labels
-		graphics.text(this.font, Component.literal("Fuel").withStyle(ChatFormatting.GRAY), 68, 90, -1, false);
-		graphics.text(this.font, Component.literal("Water").withStyle(ChatFormatting.GRAY), 132, 90, -1, false);
+		graphics.drawString(this.font, Component.literal("Fuel").withStyle(ChatFormatting.GRAY), 68, 90, -1, false);
+		graphics.drawString(this.font, Component.literal("Water").withStyle(ChatFormatting.GRAY), 132, 90, -1, false);
 
 		// Tooltips for Fuel and Water
 		if (mouseX >= this.leftPos + 48 && mouseX <= this.leftPos + 86 && mouseY >= this.topPos + 98 && mouseY <= this.topPos + 118) {
@@ -480,7 +487,7 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 		}
 
 		@Override
-		protected void extractWidgetRenderState(final GuiGraphicsExtractor graphics, final int mouseX, final int mouseY, final float tickProgress) {
+		protected void renderWidget(final GuiGraphics graphics, final int mouseX, final int mouseY, final float tickProgress) {
 			int x0 = this.getX();
 			int y0 = this.getY();
 			int w = this.width;
@@ -524,12 +531,12 @@ public class RadioLocomotiveScreen extends AbstractContainerScreen<RadioLocomoti
 				graphics.fill(capX, capY, capX + capW, capY + capH, COLOR_OFF_OUTER);
 				graphics.fill(capX + 1, capY + 1, capX + capW - 1, capY + capH - 1, COLOR_OFF_BODY);
 				graphics.fill(capX + 2, capY + 2, capX + capW - 2, capY + capH - 2, COLOR_OFF_CORE);
-				graphics.horizontalLine(capX + 2, capX + capW - 3, capY + 2, COLOR_OFF_LIGHT);
+				graphics.hLine(capX + 2, capX + capW - 3, capY + 2, COLOR_OFF_LIGHT);
 			}
 
 			// Hover highlight
 			if (this.isHovered()) {
-				graphics.outline(x0 - 1, y0 - 1, w + 2, h + 2, 0xAAFFFFFF);
+				graphics.renderOutline(x0 - 1, y0 - 1, w + 2, h + 2, 0xAAFFFFFF);
 				String typeName = this.isReverse ? "Reverse" : "Throttle";
 				int val = 1 << this.bit;
 				graphics.setTooltipForNextFrame(

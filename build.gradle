@@ -1,5 +1,5 @@
 plugins {
-	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
 	id 'maven-publish'
 }
 
@@ -22,43 +22,36 @@ loom {
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	def txrxDir = file('../peterwolfs-tx-rx-redstone/build/libs')
-	def txrxClasses = file('../peterwolfs-tx-rx-redstone/build/classes/java/main')
-	if (txrxDir.exists()) {
-		def jars = fileTree(dir: txrxDir, include: ['peterwolfs-tx-rx-redstone*.jar'], exclude: ['*-sources.jar'])
-		compileOnly jars
-		clientCompileOnly jars
-		localRuntime jars
+	def splinecartDir = file('../peterwolfs-Splinecart-1.21.11/build/libs')
+	if (splinecartDir.exists()) {
+		def jars = fileTree(dir: splinecartDir, include: ['splinecart-0.4.13*.jar'], exclude: ['*-sources.jar'])
+		modCompileOnly jars
 	}
-	if (txrxClasses.exists()) {
-		compileOnly files(txrxClasses)
-		clientCompileOnly files(txrxClasses)
-	}
-
 }
 
 processResources {
 	def version = project.version
 	inputs.property "version", version
-
 	filesMatching("fabric.mod.json") {
 		expand "version": version
 	}
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 25
+	it.options.release = 21
 }
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(25)
-	}
-
 	withSourcesJar()
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
 }
 
 jar {

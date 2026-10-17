@@ -33,9 +33,15 @@ public final class RadioLocomotiveCompat {
 
 	private static final class Bridge {
 		static int getPower(final int channel) {
-			com.piotrek.peterwolfstxrx.network.RedstoneChannelManager mgr =
-				com.piotrek.peterwolfstxrx.network.RedstoneChannelManager.get();
-			return mgr != null ? mgr.getChannelPower(channel) : 0;
+			try {
+				Class<?> clazz = Class.forName("com.piotrek.peterwolfstxrx.network.RedstoneChannelManager");
+				Object mgr = clazz.getMethod("get").invoke(null);
+				if (mgr != null) {
+					return (int) clazz.getMethod("getChannelPower", int.class).invoke(mgr, channel);
+				}
+			} catch (Throwable ignored) {
+			}
+			return 0;
 		}
 	}
 }

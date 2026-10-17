@@ -3,7 +3,7 @@ package com.piotrek.minecartchain;
 import java.util.function.Function;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
+import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -39,6 +39,41 @@ public class MinecartChainMod implements ModInitializer {
 		"radio_locomotive",
 		key -> new RadioLocomotiveItem(new Item.Properties().setId(key))
 	);
+	public static final ResourceKey<EntityType<?>> COAL_TENDER_ENTITY_KEY = ResourceKey.create(Registries.ENTITY_TYPE, id("coal_tender"));
+	public static final EntityType<CoalTenderEntity> COAL_TENDER_ENTITY = Registry.register(
+		BuiltInRegistries.ENTITY_TYPE,
+		COAL_TENDER_ENTITY_KEY,
+		EntityType.Builder.<CoalTenderEntity>of(CoalTenderEntity::new, MobCategory.MISC)
+			.sized(0.98F, 1.1F)
+			.clientTrackingRange(10)
+			.build(COAL_TENDER_ENTITY_KEY)
+	);
+	public static final CoalTenderItem COAL_TENDER_ITEM = registerItem(
+		"coal_tender",
+		key -> new CoalTenderItem(new Item.Properties().setId(key))
+	);
+	public static final ResourceKey<EntityType<?>> LONG_MINECART_ENTITY_KEY = ResourceKey.create(Registries.ENTITY_TYPE, id("long_minecart"));
+	public static final EntityType<LongMinecartEntity> LONG_MINECART_ENTITY = Registry.register(
+		BuiltInRegistries.ENTITY_TYPE,
+		LONG_MINECART_ENTITY_KEY,
+		EntityType.Builder.<LongMinecartEntity>of(LongMinecartEntity::new, MobCategory.MISC)
+			.sized(0.98F, 0.7F)
+			.clientTrackingRange(8)
+			.build(LONG_MINECART_ENTITY_KEY)
+	);
+	public static final LongMinecartItem LONG_MINECART_ITEM = registerItem(
+		"long_minecart",
+		key -> new LongMinecartItem(new Item.Properties().setId(key))
+	);
+	public static final ResourceKey<EntityType<?>> LONG_CHEST_MINECART_ENTITY_KEY = ResourceKey.create(Registries.ENTITY_TYPE, id("long_chest_minecart"));
+	public static final EntityType<LongChestMinecartEntity> LONG_CHEST_MINECART_ENTITY = Registry.register(
+		BuiltInRegistries.ENTITY_TYPE, LONG_CHEST_MINECART_ENTITY_KEY,
+		EntityType.Builder.<LongChestMinecartEntity>of(LongChestMinecartEntity::new, MobCategory.MISC)
+			.sized(0.98F, 1.2F).clientTrackingRange(10).build(LONG_CHEST_MINECART_ENTITY_KEY)
+	);
+	public static final LongChestMinecartItem LONG_CHEST_MINECART_ITEM = registerItem(
+		"long_chest_minecart", key -> new LongChestMinecartItem(new Item.Properties().stacksTo(1).setId(key))
+	);
 	public static final ResourceKey<EntityType<?>> STEAM_LOCOMOTIVE_ENTITY_KEY = ResourceKey.create(Registries.ENTITY_TYPE, id("steam_locomotive"));
 	public static final EntityType<SteamLocomotiveEntity> STEAM_LOCOMOTIVE_ENTITY = Registry.register(
 		BuiltInRegistries.ENTITY_TYPE,
@@ -51,6 +86,14 @@ public class MinecartChainMod implements ModInitializer {
 	public static final SteamLocomotiveItem STEAM_LOCOMOTIVE_ITEM = registerItem(
 		"steam_locomotive",
 		key -> new SteamLocomotiveItem(new Item.Properties().setId(key))
+	);
+	public static final SteamLocomotiveWithTenderItem STEAM_LOCOMOTIVE_WITH_TENDER_ITEM = registerItem(
+		"steam_locomotive_with_tender",
+		key -> new SteamLocomotiveWithTenderItem(new Item.Properties().setId(key))
+	);
+	public static final RadioSteamLocomotiveItem RADIO_STEAM_LOCOMOTIVE_ITEM = registerItem(
+		"radio_steam_locomotive",
+		key -> new RadioSteamLocomotiveItem(new Item.Properties().setId(key))
 	);
 	public static final MenuType<MinecartLocomotiveMenu> LOCOMOTIVE_MENU = Registry.register(
 		BuiltInRegistries.MENU,
@@ -70,7 +113,7 @@ public class MinecartChainMod implements ModInitializer {
 			MinecartChainCommands.register(dispatcher)
 		);
 		registerCreativeTabs();
-		PayloadTypeRegistry.serverboundPlay().register(RadioLocomotiveJumperPayload.TYPE, RadioLocomotiveJumperPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(RadioLocomotiveJumperPayload.TYPE, RadioLocomotiveJumperPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(RadioLocomotiveJumperPayload.TYPE, (payload, context) -> {
 			context.server().execute(() -> {
 				if (context.player().containerMenu instanceof RadioLocomotiveMenu menu) {
@@ -78,11 +121,13 @@ public class MinecartChainMod implements ModInitializer {
 				}
 			});
 		});
-		PayloadTypeRegistry.serverboundPlay().register(SteamLocomotiveInputPayload.TYPE, SteamLocomotiveInputPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(SteamLocomotiveInputPayload.TYPE, SteamLocomotiveInputPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(SteamLocomotiveInputPayload.TYPE, (payload, context) -> {
 			context.server().execute(() -> {
 				if (context.player().getVehicle() instanceof SteamLocomotiveEntity locomotive) {
-					locomotive.handleDriverInput(payload.throttle(), payload.reverser(), payload.toggleCoupler());
+					locomotive.handleDriverInput(
+						payload.throttle(), payload.reverser(), payload.coupleNext(), payload.uncoupleLast()
+					);
 				}
 			});
 		});
@@ -95,6 +140,9 @@ public class MinecartChainMod implements ModInitializer {
 			MinecartTrainLogic.clearRuntimeState();
 			SignalRailBlock.clearRuntimeState();
 		});
+		if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("splinecart")) {
+			SplinecartPlacementHandler.register();
+		}
 		LOGGER.info("Registered minecart chain interactions");
 	}
 
@@ -120,20 +168,28 @@ public class MinecartChainMod implements ModInitializer {
 	}
 
 	private static void registerCreativeTabs() {
-		CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.REDSTONE_BLOCKS)
-			.register(output -> {
-				output.insertAfter(Items.POWERED_RAIL, SIGNAL_RAIL_ITEM);
-				output.insertAfter(SIGNAL_RAIL_ITEM, STEAM_LOCOMOTIVE_ITEM);
-				if (RadioLocomotiveCompat.isTxRxModLoaded()) {
-					output.insertAfter(STEAM_LOCOMOTIVE_ITEM, RADIO_LOCOMOTIVE_ITEM);
-				}
-			});
-		CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES)
-			.register(output -> {
-				output.insertAfter(Items.FURNACE_MINECART, STEAM_LOCOMOTIVE_ITEM);
-				if (RadioLocomotiveCompat.isTxRxModLoaded()) {
-					output.insertAfter(STEAM_LOCOMOTIVE_ITEM, RADIO_LOCOMOTIVE_ITEM);
-				}
-			});
+		ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.REDSTONE_BLOCKS).register(entries -> {
+			entries.accept(LONG_CHEST_MINECART_ITEM);
+			entries.addAfter(Items.POWERED_RAIL, SIGNAL_RAIL_ITEM);
+			entries.addAfter(SIGNAL_RAIL_ITEM, STEAM_LOCOMOTIVE_ITEM);
+			entries.addAfter(STEAM_LOCOMOTIVE_ITEM, STEAM_LOCOMOTIVE_WITH_TENDER_ITEM);
+			entries.accept(LONG_MINECART_ITEM);
+			entries.accept(COAL_TENDER_ITEM);
+			if (RadioLocomotiveCompat.isTxRxModLoaded()) {
+				entries.addAfter(COAL_TENDER_ITEM, RADIO_LOCOMOTIVE_ITEM);
+				entries.addAfter(RADIO_LOCOMOTIVE_ITEM, RADIO_STEAM_LOCOMOTIVE_ITEM);
+			}
+		});
+		ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(entries -> {
+			entries.accept(LONG_CHEST_MINECART_ITEM);
+			entries.addAfter(Items.FURNACE_MINECART, STEAM_LOCOMOTIVE_ITEM);
+			entries.addAfter(STEAM_LOCOMOTIVE_ITEM, STEAM_LOCOMOTIVE_WITH_TENDER_ITEM);
+			entries.accept(LONG_MINECART_ITEM);
+			entries.accept(COAL_TENDER_ITEM);
+			if (RadioLocomotiveCompat.isTxRxModLoaded()) {
+				entries.addAfter(COAL_TENDER_ITEM, RADIO_LOCOMOTIVE_ITEM);
+				entries.addAfter(RADIO_LOCOMOTIVE_ITEM, RADIO_STEAM_LOCOMOTIVE_ITEM);
+			}
+		});
 	}
 }
