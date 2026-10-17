@@ -1,79 +1,65 @@
 plugins {
-	id 'net.fabricmc.fabric-loom' version "${loom_version}"
-	id 'maven-publish'
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.141'
 }
 
-version = project.mod_version
-group = project.maven_group
+version = mod_version
+group = mod_group_id
 
-repositories {
+base { archivesName = "${mod_id}-neoforge" }
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java', 'build/generated/sharedJava']
+        }
+        resources {
+            srcDirs = ['../minecart-chain/src/main/resources', 'src/main/resources', 'build/generated/sources/modMetadata']
+            exclude 'fabric.mod.json'
+        }
+    }
 }
 
-loom {
-	splitEnvironmentSourceSets()
-
-	mods {
-		"minecart_chain" {
-			sourceSet sourceSets.main
-			sourceSet sourceSets.client
-		}
-	}
+def syncSharedJava = tasks.register('syncSharedJava', Sync) {
+    from('../minecart-chain/src/main/java') {
+        exclude 'com/piotrek/minecartchain/MinecartChainMod.java'
+    }
+    from('../minecart-chain/src/client/java') {
+        exclude 'com/piotrek/minecartchain/client/MinecartChainClient.java'
+    }
+    into 'build/generated/sharedJava'
 }
 
-dependencies {
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-
-	def txrxDir = file('../peterwolfs-tx-rx-redstone/build/libs')
-	def txrxClasses = file('../peterwolfs-tx-rx-redstone/build/classes/java/main')
-	if (txrxDir.exists()) {
-		def jars = fileTree(dir: txrxDir, include: ['peterwolfs-tx-rx-redstone*.jar'], exclude: ['*-sources.jar'])
-		compileOnly jars
-		clientCompileOnly jars
-		localRuntime jars
-	}
-	if (txrxClasses.exists()) {
-		compileOnly files(txrxClasses)
-		clientCompileOnly files(txrxClasses)
-	}
-
+neoForge {
+    version = project.neo_version
+    runs {
+        client { client() }
+        server { server(); programArgument '--nogui' }
+        configureEach { logLevel = org.slf4j.event.Level.INFO }
+    }
+    mods {
+        "${mod_id}" { sourceSet(sourceSets.main) }
+    }
 }
 
-processResources {
-	def version = project.version
-	inputs.property "version", version
-
-	filesMatching("fabric.mod.json") {
-		expand "version": version
-	}
+def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    inputs.properties([
+        minecraft_version: minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        neo_version: neo_version,
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_license: mod_license,
+        mod_version: mod_version
+    ])
+    expand(inputs.properties)
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
 }
 
-tasks.withType(JavaCompile).configureEach {
-	it.options.release = 25
-}
-
-java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(25)
-	}
-
-	withSourcesJar()
-}
-
-jar {
-	def projectName = project.name
-	inputs.property "projectName", projectName
-
-	from("LICENSE") {
-		rename { "${it}_${projectName}" }
-	}
-}
-
-publishing {
-	publications {
-		create("mavenJava", MavenPublication) {
-			from components.java
-		}
-	}
-}
+neoForge.ideSyncTask generateModMetadata
+tasks.named('processResources').configure { dependsOn generateModMetadata }
+tasks.named('compileJava').configure { dependsOn syncSharedJava }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }

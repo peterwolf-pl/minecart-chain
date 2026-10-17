@@ -1,4 +1,7 @@
-.DS_Store
 .gradle/
 build/
 run/
+!run/eula.txt
+!run/server.properties
+*.log
+.DS_Store
