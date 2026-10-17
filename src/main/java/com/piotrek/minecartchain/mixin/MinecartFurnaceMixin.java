@@ -70,14 +70,14 @@ public abstract class MinecartFurnaceMixin implements MinecartLocomotiveAccess {
 	@Inject(method = "getDropItem", at = @At("HEAD"), cancellable = true)
 	private void minecartChain$overrideRadioLocomotiveDrop(final CallbackInfoReturnable<Item> cir) {
 		if (((MinecartChainAccess) this).minecartChain$isRadioLocomotive()) {
-			cir.setReturnValue(MinecartChainMod.RADIO_LOCOMOTIVE_ITEM);
+			cir.setReturnValue(MinecartChainMod.RADIO_LOCOMOTIVE_ITEM.get());
 		}
 	}
 
 	@Inject(method = "getPickResult", at = @At("HEAD"), cancellable = true)
 	private void minecartChain$overrideRadioLocomotivePick(final CallbackInfoReturnable<ItemStack> cir) {
 		if (((MinecartChainAccess) this).minecartChain$isRadioLocomotive()) {
-			cir.setReturnValue(new ItemStack(MinecartChainMod.RADIO_LOCOMOTIVE_ITEM));
+			cir.setReturnValue(new ItemStack(MinecartChainMod.RADIO_LOCOMOTIVE_ITEM.get()));
 		}
 	}
 
@@ -277,6 +277,10 @@ public abstract class MinecartFurnaceMixin implements MinecartLocomotiveAccess {
 				);
 			} else {
 				data.minecartChain$setReversePending(true);
+				this.push = Vec3.ZERO;
+				MinecartTrainLogic.applyTrainBrake(furnace);
+				this.setHasFuel(false);
+				return;
 			}
 		} else {
 			data.minecartChain$setReversePending(false);

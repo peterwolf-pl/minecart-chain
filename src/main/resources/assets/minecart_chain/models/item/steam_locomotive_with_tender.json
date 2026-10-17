@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "minecart_chain:item/steam_locomotive_with_tender"
+  }
+}

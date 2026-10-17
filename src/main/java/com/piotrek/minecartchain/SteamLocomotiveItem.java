@@ -62,7 +62,7 @@ public class SteamLocomotiveItem extends Item {
 				spawnX,
 				spawnY,
 				spawnZ,
-				MinecartChainMod.STEAM_LOCOMOTIVE_ENTITY,
+				MinecartChainMod.STEAM_LOCOMOTIVE_ENTITY.get(),
 				EntitySpawnReason.DISPENSER,
 				stack,
 				context.getPlayer()

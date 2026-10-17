@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "equipment",
+  "ingredients": [
+    "minecart_chain:steam_locomotive",
+    "minecart_chain:coal_tender",
+    "minecraft:iron_chain"
+  ],
+  "result": {
+    "id": "minecart_chain:steam_locomotive_with_tender"
+  }
+}

@@ -10,7 +10,6 @@
 	"client": [
 		"client.AbstractMinecartRendererMixin",
 		"client.CameraMixin",
-		"client.EntityRenderDispatcherMixin",
 		"client.LocalPlayerMinecartLookMixin",
 		"client.MinecartRenderStateMixin"
 	],

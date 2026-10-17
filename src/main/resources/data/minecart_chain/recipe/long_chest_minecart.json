@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "equipment",
+  "ingredients": [
+    "minecart_chain:long_minecart",
+    "minecraft:chest",
+    "minecraft:chest"
+  ],
+  "result": {
+    "id": "minecart_chain:long_chest_minecart"
+  }
+}

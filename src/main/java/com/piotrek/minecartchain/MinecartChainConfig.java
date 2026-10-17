@@ -7,11 +7,11 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import net.fabricmc.loader.api.FabricLoader;
+import net.neoforged.fml.loading.FMLPaths;
 
 public final class MinecartChainConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("minecart_chain.json");
+	private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get().resolve("minecart_chain.json");
 
 	// Default: disabled as requested by user!
 	public static boolean requireFuel = false;

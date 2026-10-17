@@ -1,9 +1,9 @@
 package com.piotrek.minecartchain;
 
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.fml.ModList;
 
 public final class RadioLocomotiveCompat {
 	public static final String TXRX_MOD_ID = "peterwolfs_txrx_redstone";
@@ -13,7 +13,7 @@ public final class RadioLocomotiveCompat {
 	}
 
 	public static boolean isTxRxModLoaded() {
-		return FabricLoader.getInstance().isModLoaded(TXRX_MOD_ID);
+		return ModList.get().isLoaded(TXRX_MOD_ID);
 	}
 
 	public static boolean isReceiverItem(final ItemStack stack) {
@@ -33,9 +33,15 @@ public final class RadioLocomotiveCompat {
 
 	private static final class Bridge {
 		static int getPower(final int channel) {
-			com.piotrek.peterwolfstxrx.network.RedstoneChannelManager mgr =
-				com.piotrek.peterwolfstxrx.network.RedstoneChannelManager.get();
-			return mgr != null ? mgr.getChannelPower(channel) : 0;
+			try {
+				Class<?> clazz = Class.forName("com.piotrek.peterwolfstxrx.network.RedstoneChannelManager");
+				Object mgr = clazz.getMethod("get").invoke(null);
+				if (mgr != null) {
+					return (int) clazz.getMethod("getChannelPower", int.class).invoke(mgr, channel);
+				}
+			} catch (Throwable ignored) {
+			}
+			return 0;
 		}
 	}
 }
