@@ -651,3 +651,257 @@ ISSUES:
 ==============================
 nie obracaj lokomotywy podczas przejazdlu przez łącznik waniliowych torów i track ties. lokomotywa ma byc ustawiona w tym samym kierunku. teraz na tracku ze splinecart obruciła sie o 90 stopni
 
+[
+==============================
+[2026-09-25T05:48:46.002Z] [USER]
+==============================
+rozdziel prace na workerów. koła weglarki maja sie oracac podczas ruchu. dodaj kolejny item lokomotywa z weglarka. w przypadku tego obiektu C nie rozłącza weglarki tylko doczepia do zestawu kolejny wagon za weglarka. weglarka ma byc na stałe połaczona z lokomotywa. ma byc traktowana jak jeden obiekt tylko ze z zawiasem. weglarka juz nie powinna zostawac z tyłu podczas skretów, zwrotnic itd.
+
+[
+==============================
+[2026-09-25T05:54:09.196Z] [WORKER (xai)]
+==============================
+[WORKER PROMPT (worker-005-b84fc9f5 / xai)]:
+You are xai, a specialized worker coding agent assisting Master Agent (Antigravity).
+SPECIALIST ROLE: ui_worker
+PRIORITY: P1
+
+TASK ID: worker-005-b84fc9f5
+TITLE: Client: Coal tender wheel rotation & locomotive with tender assets
+DESCRIPTION: You are responsible for the client-side model, renderer, and asset definitions for the coal tender and the new Steam Locomotive with Tender item.
+
+Requirements:
+1. Coal Tender Wheel Animation:
+   - In CoalTenderRenderState.java: add `public float wheelRotation;`.
+   - In CoalTenderModel.java:
+     - In constructor, get and store references to the 8 wheel ModelParts defined in createBodyLayer():
+       "wheel_lf", "wheel_lm", "wheel_lr", "wheel_le", "wheel_rf", "wheel_rm", "wheel_rr", "wheel_re".
+     - In setupAnim(CoalTenderRenderState state):
+       Set zRot on all 8 wheels to state.wheelRotation (matching the coordinate system used in SteamLocomotiveModel).
+   - In CoalTenderRenderer.java:
+     - In extractRenderState: extract `state.wheelRotation = entity.getWheelRotation(partialTick);`.
+       (Note: CoalTenderEntity has method `public float getWheelRotation(final float partialTick)`).
+
+2. Asset and Recipe definitions for `steam_locomotive_with_tender`:
+   - `src/main/resources/assets/minecart_chain/items/steam_locomotive_with_tender.json`:
+     {"model": {"type": "minecraft:model", "model": "minecart_chain:item/steam_locomotive_with_tender"}}
+   - `src/main/resources/assets/minecart_chain/models/item/steam_locomotive_with_tender.json`:
+     {"parent": "minecraft:item/generated", "textures": {"layer0": "minecart_chain:item/steam_locomotive_with_tender"}}
+   - `src/main/resources/data/minecart_chain/recipe/steam_locomotive_with_tender.json`:
+     A recipe combining `minecart_chain:steam_locomotive` and `minecart_chain:coal_tender` with `minecraft:iron_chain` (shapeless crafting recipe).
+   - `src/main/resources/data/minecart_chain/advancement/recipes/equipment/steam_locomotive_with_tender.json`:
+     Matching recipe unlock advancement.
+   - In `en_us.json`:
+     Add `"item.minecart_chain.steam_locomotive_with_tender": "Steam Locomotive with Tender"`,
+     and any related messages if needed (e.g. coupler messages).
+   - In `pl_pl.json`:
+     Add `"item.minecart_chain.steam_locomotive_with_tender": "Lokomotywa parowa z węglarką"`,
+     and any related messages if needed.
+
+Do NOT modify any files outside your allowed_files list.
+Compile with `./gradlew compileClientJava` to verify your changes.
+
+SCOPE & FILE OWNERSHIP:
+1. Work strictly within the assigned task scope. Do not redesign the project architecture.
+2. Only modify files within your allowed scope: src/client/java/com/piotrek/minecartchain/client/CoalTenderRenderState.java, src/client/java/com/piotrek/minecartchain/client/CoalTenderModel.java, src/client/java/com/piotrek/minecartchain/client/CoalTenderRenderer.java, src/main/resources/assets/minecart_chain/items/steam_locomotive_with_tender.json, src/main/resources/assets/minecart_chain/models/item/steam_locomotive_with_tender.json, src/main/resources/data/minecart_chain/recipe/steam_locomotive_with_tender.json, src/main/resources/data/minecart_chain/advancement/recipes/equipment/steam_locomotive_with_tender.json, src/main/resources/assets/minecart_chain/lang/en_us.json, src/main/resources/assets/minecart_chain/lang/pl_pl.json.
+3. If you need to suggest changes to files outside your scope, provide recommendations or diffs for Master review.
+4. Verify your solution by running test command: ./gradlew compileClientJava
+
+AVAILABLE TOOLS & TERMINAL ACCESS:
+You have active access to tools:
+- bash / run_command / execute_command / terminal: run shell/terminal commands (e.g. ls, git, grep, npm, build, tests)
+- read / read_file / view_file: read files from disk
+- edit / replace_file_content: modify existing files
+- write / write_to_file: create new files
+USE THESE TOOLS ACTIVELY to read files, run terminal commands, implement required changes, and verify results. Do NOT assume you lack terminal or file access.
+
+CRITICAL RULE - NO GUESSING:
+Never invent API names, classes, methods, configuration options, library versions, commands, Minecraft/Fabric APIs, framework APIs, or package names.
+If an API or interface is uncertain:
+1. Inspect the project code.
+2. Inspect installed dependencies and configs.
+3. Inspect official documentation if available.
+4. Inspect source code.
+5. Only then implement.
+If verification is impossible, report the uncertainty to the Master and mark status as BLOCKED.
+
+CHANGE SCOPE:
+Keep the diff focused. Avoid unrelated modifications.
+Do NOT redesign UI, update unrelated dependencies, reformat the entire project, rename unrelated files, or perform unrelated refactoring.
+
+WORKER CONTRACT:
+Provide a clear structured report concluding with:
+## RESULT
+* status: DONE / BLOCKED / FAILED
+* files changed: [comma-separated paths]
+* files created: [comma-separated paths]
+* files deleted: [comma-separated paths]
+* implementation summary: [concise summary of changes]
+* tests executed: [command or "none"]
+* test results: [passed / failed / skipped with details]
+* unresolved issues: [none or list of issues]
+* assumptions made: [none or list of assumptions]
+
+Keep the report concise. Do not return large explanations unless requested.
+
+[
+==============================
+[2026-09-25T05:54:09.209Z] [WORKER (antigravity)]
+==============================
+[WORKER PROMPT (worker-006-ab3b87a4 / antigravity)]:
+You are antigravity, a specialized worker coding agent assisting Master Agent (Antigravity).
+SPECIALIST ROLE: backend_worker
+PRIORITY: P0
+
+TASK ID: worker-006-ab3b87a4
+TITLE: Backend: Steam locomotive with tender kinematics & coupling logic
+DESCRIPTION: You are responsible for implementing the backend, physics, entity logic, and item for the new "Steam Locomotive with Tender" (Lokomotywa z węglarką) and coal tender movement.
+
+Requirements:
+1. CoalTenderEntity:
+   - Wheel rotation tracking:
+     - Add fields: `private float wheelRotation = 0.0F;`, `private float prevWheelRotation = 0.0F;`.
+     - Method `public float getWheelRotation(final float partialTick) { return Mth.lerp(partialTick, this.prevWheelRotation, this.wheelRotation); }`.
+     - In tick(), calculate horizontal movement distance. If speed > 0.0015, update `wheelRotation += rotDelta` where rotDelta is based on movement along facing (similar to SteamLocomotiveEntity, using `rotDelta = (float) (sign * (hSpeed / 0.1875D))` where sign = movement.dot(facing) >= 0 ? -1.0F : 1.0F).
+   - Permanent locomotive tracking:
+     - Add `private Optional<UUID> permanentLocomotiveId = Optional.empty();`.
+     - Sync or save/load in NBT (`PermanentLocomotive` UUID).
+     - Getter `public Optional<UUID> getPermanentLocomotiveId()`, `public boolean hasPermanentLocomotive()`, `public void setPermanentLocomotive(UUID id)`.
+     - When broken/destroyed in `destroy()`, if it has a permanent locomotive, coordinate destruction so the parent locomotive drops `STEAM_LOCOMOTIVE_WITH_TENDER_ITEM` and both are cleanly removed, without dropping duplicate tender items.
+     - `getPickResult()`: if it has permanent locomotive, return `STEAM_LOCOMOTIVE_WITH_TENDER_ITEM`.
+
+2. SteamLocomotiveEntity:
+   - Permanent tender tracking:
+     - Add `private Optional<UUID> permanentTenderId = Optional.empty();`.
+     - Sync or save/load in NBT (`PermanentTender` UUID).
+     - Getter/setter: `public Optional<UUID> getPermanentTenderId()`, `public boolean hasPermanentTender()`, `public void setPermanentTender(UUID id)`.
+     - When broken/destroyed, if it has a permanent tender, cleanly remove the tender too and drop `STEAM_LOCOMOTIVE_WITH_TENDER_ITEM`.
+     - `getPickResult()`: if it has permanent tender, return `STEAM_LOCOMOTIVE_WITH_TENDER_ITEM`.
+   - Coupler keybind 'C' / toggleCoupler behavior:
+     - "w przypadku tego obiektu C nie rozłącza weglarki tylko doczepia do zestawu kolejny wagon za weglarka. weglarka ma byc na stałe połaczona z lokomotywa."
+     - If `this.hasPermanentTender()`:
+       - Find the CoalTenderEntity in the server level.
+       - The link between locomotive and tender is PERMANENT and must NEVER be severed by toggleCoupler.
+       - Check if the tender already has another cart coupled behind it (i.e. tender has a link to a UUID != this.getUUID()).
+       - If YES: UNCOUPLE that wagon from the tender! Play chain break sound, send overlay message to driver ("Coupler: Disconnected wagon behind tender"), update cab lever.
+       - If NO: Search for the nearest AbstractMinecart behind the tender along the track (within 2.75 blocks of the tender rear).
+         If found: link the tender and that wagon! Play chain place sound, send overlay message ("Coupler: Connected wagon to tender"), update cab lever.
+         If not found: play click sound, send overlay message ("Coupler: No wagon in reach").
+   - Articulation / Kinematics (Hinge):
+     - "weglarka ma byc na stałe połaczona z lokomotywa. ma byc traktowana jak jeden obiekt tylko ze z zawiasem. weglarka juz nie powinna zostawac z tyłu podczas skretów, zwrotnic itd."
+     - Maintain a history of traversed track positions / breadcrumbs (e.g. list/deque of Vec3 positions and rotations).
+     - In tick(), the locomotive updates its permanently attached tender along the track at the fixed hinge distance D ≈ 2.35 blocks behind the locomotive:
+       - Samples the exact path traversed by the locomotive at arc length D.
+       - Positions the tender on that path: sets tender's pos, yRot (yaw tangent), xRot (pitch), and deltaMovement matching locomotive's along-track speed.
+       - This ensures the tender follows the locomotive's exact route through curves and switches (zwrotnice) without lagging behind or taking the wrong branch!
+     - In `tick()`, ensure `guideCoupledWagons(serverLevel)` is called even when coasting or braking so wagons behind the tender stay guided.
+
+3. MinecartTrainLogic & Mixin:
+   - In `MinecartTrainLogic.java`:
+     - In `guidePoweredTrainAfterLinkedCartTick`: also support `SteamLocomotiveEntity`!
+     - In `applyLinkConstraint`: do NOT break link or drop chains between permanent locomotive and tender.
+     - In `curvedRailDirection`: if a minecart is on a curve, do not lock its direction to old deltaMovement if external/track heading is available.
+     - In `moveIfNotMounted`: ensure position clamping works smoothly on curves.
+   - In `NewMinecartBehaviorMixin.java`:
+     - If the minecart is a permanent tender managed by an active locomotive, cancel vanilla `NewMinecartBehavior.tick()` at HEAD so vanilla physics does not fight the hinge positioning or derail on switches.
+
+4. MinecartLinkHandler:
+   - In `unlinkAll` and iron chain usage, do not allow removing the permanent link between locomotive and tender.
+
+5. SteamLocomotiveWithTenderItem & MinecartChainMod:
+   - Create `SteamLocomotiveWithTenderItem.java` (similar to SteamLocomotiveItem):
+     - On rails: spawns `SteamLocomotiveEntity` AND `CoalTenderEntity` hitched directly behind it at distance ~2.35 blocks.
+     - Sets their permanent references and adds mutual links in MinecartChainAccess.
+   - Register `STEAM_LOCOMOTIVE_WITH_TENDER_ITEM` in `MinecartChainMod.java` (`steam_locomotive_with_tender`).
+   - Add to CreativeModeTabs (REDSTONE_BLOCKS and TOOLS_AND_UTILITIES).
+
+Verify with `./gradlew compileJava`.
+
+SCOPE & FILE OWNERSHIP:
+1. Work strictly within the assigned task scope. Do not redesign the project architecture.
+2. Only modify files within your allowed scope: src/main/java/com/piotrek/minecartchain/CoalTenderEntity.java, src/main/java/com/piotrek/minecartchain/SteamLocomotiveEntity.java, src/main/java/com/piotrek/minecartchain/SteamLocomotiveWithTenderItem.java, src/main/java/com/piotrek/minecartchain/MinecartChainMod.java, src/main/java/com/piotrek/minecartchain/MinecartTrainLogic.java, src/main/java/com/piotrek/minecartchain/MinecartLinkHandler.java, src/main/java/com/piotrek/minecartchain/mixin/NewMinecartBehaviorMixin.java.
+3. If you need to suggest changes to files outside your scope, provide recommendations or diffs for Master review.
+4. Verify your solution by running test command: ./gradlew compileJava
+
+AVAILABLE TOOLS & TERMINAL ACCESS:
+You have active access to tools:
+- bash / run_command / execute_command / terminal: run shell/terminal commands (e.g. ls, git, grep, npm, build, tests)
+- read / read_file / view_file: read files from disk
+- edit / replace_file_content: modify existing files
+- write / write_to_file: create new files
+USE THESE TOOLS ACTIVELY to read files, run terminal commands, implement required changes, and verify results. Do NOT assume you lack terminal or file access.
+
+CRITICAL RULE - NO GUESSING:
+Never invent API names, classes, methods, configuration options, library versions, commands, Minecraft/Fabric APIs, framework APIs, or package names.
+If an API or interface is uncertain:
+1. Inspect the project code.
+2. Inspect installed dependencies and configs.
+3. Inspect official documentation if available.
+4. Inspect source code.
+5. Only then implement.
+If verification is impossible, report the uncertainty to the Master and mark status as BLOCKED.
+
+CHANGE SCOPE:
+Keep the diff focused. Avoid unrelated modifications.
+Do NOT redesign UI, update unrelated dependencies, reformat the entire project, rename unrelated files, or perform unrelated refactoring.
+
+WORKER CONTRACT:
+Provide a clear structured report concluding with:
+## RESULT
+* status: DONE / BLOCKED / FAILED
+* files changed: [comma-separated paths]
+* files created: [comma-separated paths]
+* files deleted: [comma-separated paths]
+* implementation summary: [concise summary of changes]
+* tests executed: [command or "none"]
+* test results: [passed / failed / skipped with details]
+* unresolved issues: [none or list of issues]
+* assumptions made: [none or list of assumptions]
+
+Keep the report concise. Do not return large explanations unless requested.
+
+[
+==============================
+[2026-09-25T06:06:45.584Z] [MASTER (google-antigravity-2)]
+==============================
+STATUS:
+DONE
+
+CHANGES:
+- **Obrót kół węglarki podczas ruchu (Coal Tender Wheel Animation)**:
+  - `CoalTenderRenderState.java`: Dodano pole `wheelRotation` do stanu renderowania.
+  - `CoalTenderModel.java`: Podpięto wszystkie 8 kół węglarki (`wheel_lf`, `wheel_lm`, `wheel_lr`, `wheel_le`, `wheel_rf`, `wheel_rm`, `wheel_rr`, `wheel_re`), obracając je wokół osi `zRot` w metodzie `setupAnim`.
+  - `CoalTenderEntity.java`: Dodano śledzenie obrotu kół na podstawie przebytej drogi i wektora zwrotu (`hSpeed / 0.1875D`), z płynną interpolacją klatek `getWheelRotation(partialTick)` działającą zarówno po stronie serwera, jak i klienta.
+  - `CoalTenderRenderer.java`: Pobieranie rzeczywistego kąta obrotu kół z encji do stanu renderowania.
+- **Nowy przedmiot: Lokomotywa z węglarką (Steam Locomotive with Tender)**:
+  - `SteamLocomotiveWithTenderItem.java`: Dedykowany item stawiający na szynach parowóz wraz ze spiętą węglarką w zadanym kierunku torowiska.
+  - `MinecartChainMod.java`: Rejestracja przedmiotu `STEAM_LOCOMOTIVE_WITH_TENDER_ITEM` (`steam_locomotive_with_tender`) oraz dodanie go do zakładek kreatywnych *Redstone Blocks* i *Tools & Utilities*.
+  - Modele, tekstury i receptury: Dodano `steam_locomotive_with_tender.json` (model i definicja itemu), bezpłatną bezkształtną recepturę rzemieślniczą łączącą lokomotywę, węglarkę i łańcuch (`recipe/steam_locomotive_with_tender.json`), advancement odblokowujący oraz wpisy językowe w `pl_pl.json` i `en_us.json`.
+- **Stałe połączenie przegubowe (obiekt z zawiasem)**:
+  - `SteamLocomotiveEntity.java` & `CoalTenderEntity.java`: Lokomotywa i węglarka przechowują wzajemne identyfikatory trwałego połączenia (`permanentTenderId` / `permanentLocomotiveId`) zapisywane w NBT.
+  - `SteamLocomotiveEntity.positionPermanentTender`: Kinematyka zawiasu z historią śladu toru (breadcrumb path). Węglarka jest sztywno prowadzona w odległości zawiasu ($D \approx 2.35$ bloku) po dokładnej trasie, którą przejechała lokomotywa. Dzięki temu węglarka idealnie wchodzi w zakręty i zwrotnice, nie rozciąga się, nie zostaje z tyłu i zachowuje identyczną prędkość torową.
+  - `NewMinecartBehaviorMixin.java`: Anulowanie domyślnej fizyki Minecrafta na serwerze dla węglarki zintegrowanej z parowozem, eliminując rozjazdy na zwrotnicach i podwójne poruszanie.
+  - `MinecartTrainLogic.java` & `MinecartLinkHandler.java`: Połączenie stałe jest chronione przed zerwaniem z powodu odległości, zrzuceniem łańcuchów czy przypadkowym rozłączeniem łańcuchem przez gracza.
+  - Wspólne niszczenie/zbieranie: Zniszczenie lokomotywy lub węglarki upuszcza przedmiot `steam_locomotive_with_tender` (wraz z zawartością skrzyni węglarki) i usuwa obie encje.
+- **Obsługa klawisza 'C' dla zestawu parowóz + węglarka**:
+  - `SteamLocomotiveEntity.toggleCoupler`: Klawisz `C` nie odczepia węglarki od parowozu; zamiast tego steruje sprzęgiem na końcu węglarki:
+    - Jeśli za węglarką znajduje się podpięty wagonik, `C` odczepia ten wagonik (dźwięk rozpinania łańcucha, komunikat maszynisty).
+    - Jeśli za węglarką nie ma wagonika, `C` przeszukuje tor z tyłu węglarki (w zasięgu do 2.75 bloku) i automatycznie przypina kolejny wagon do składu.
+    - Dźwignia sprzęgu w kabinie maszynisty pokazuje stan podłączenia składu za węglarką.
+
+TESTS:
+- `./gradlew compileJava compileClientJava` — zakończone sukcesem.
+- `./gradlew build` — pomyślna pełna budowa paczki modu bez błędów.
+
+AGENTS USED:
+- `ui_worker` (`xai`): implementacja animacji obrotu kół w modelu/rendererze, plików definicji JSON, receptur, advancementów i wpisów językowych.
+- `backend_worker` (`antigravity`): implementacja trwałych powiązań lokomotywy i węglarki, kinematyki śladu zawiasu oraz logiki sprzęgu 'C'.
+- `Master`: koordynacja zadań równoległych, rejestracja `SteamLocomotiveWithTenderItem` w `MinecartChainMod`, ujednolicenie rotacji kół na kliencie i serwerze, korekta wektorów stycznych zawiasu oraz finalna weryfikacja i build.
+
+REASONING:
+- MEDIUM: implementacja animacji kół modelu i zasobów klienta.
+- HIGH: geometria kinematyki przegubowej (artykulacja zawiasu po ścieżce toru, zwrotnice), logika sprzęgu składu za węglarką i synchronizacja destrukcji encji.
+
+ISSUES:
+- Brak.
+

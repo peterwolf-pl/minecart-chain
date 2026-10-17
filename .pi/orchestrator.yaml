@@ -1,18 +1,19 @@
 enabled: false
-masterAccount: google-antigravity-2
-securityAuditorAccount: google-antigravity-3
-securityAuditorEnabled: false
+masterAccount: xai
+securityAuditorAccount: antigravity
+securityAuditorEnabled: true
 activeWorkers:
-  - google-antigravity-4
+  - openai-codex
+  - google-antigravity-2
   - google-antigravity-3
-  - xai
-  - antigravity
+  - google-antigravity-4
+manuallyIdledWorkers: []
 accounts:
   xai:
     id: xai
     provider: xai
     enabled: true
-    role: security_auditor
+    role: master
   google-antigravity-2:
     id: google-antigravity-2
     provider: antigravity
@@ -36,7 +37,13 @@ accounts:
     provider: antigravity
     label: liamprssn@gmail.com
     enabled: true
-    role: master
+    role: security_auditor
+  openai-codex:
+    id: openai-codex
+    provider: openai-codex
+    label: pryde.neil@gmail.com
+    enabled: true
+    role: worker
 models:
   master:
     model: gemini-3.8-flash
@@ -45,7 +52,7 @@ models:
     model: gemini-3.8-flash
     thinking: low
   auditor:
-    model: grok-beta
+    model: grok-4.7
     thinking: low
   workers:
     google-antigravity-2:
@@ -53,10 +60,13 @@ models:
       thinking: low
     google-antigravity-3:
       model: gemini-3.8-flash
-      thinking: low
+      thinking: medium
     google-antigravity-4:
       model: gemini-3.8-flash
-      thinking: medium
+      thinking: high
+    xai:
+      model: grok-4.7
+      thinking: low
     antigravity:
       model: gemini-3.8-flash
       thinking: off
@@ -69,6 +79,7 @@ dashboard:
   autoLaunch: true
   columns: 155
   rows: 90
+workerTerminals: false
 delegation:
   enabled: true
   automatic: true

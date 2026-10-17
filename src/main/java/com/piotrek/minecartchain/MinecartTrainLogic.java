@@ -16,11 +16,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseRailBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -32,7 +29,6 @@ public final class MinecartTrainLogic {
 	private static final double MAX_LINK_DISTANCE = 2.2D;
 	private static final double MIN_LINK_DISTANCE = 1.55D;
 	private static final double MIN_GUIDED_LINK_DISTANCE = 1.3D;
-	private static final double LINK_BREAK_DISTANCE = 12.0D;
 	private static final double LINK_STIFFNESS = 0.07D;
 	private static final double LINK_DAMPING = 0.22D;
 	private static final double MIN_DISTANCE_PUSH = 0.1D;
@@ -111,6 +107,21 @@ public final class MinecartTrainLogic {
 		}
 
 		UUID id = linkId.get();
+		if (MinecartLinkHandler.isPermanentLink(level, minecart, id)) {
+			// Never prune a permanent link between locomotive and tender!
+			Entity linkedEntity = level.getEntity(id);
+			if (linkedEntity instanceof AbstractMinecart linkedMinecart && !linkedMinecart.isRemoved()) {
+				MinecartChainAccess partnerData = (MinecartChainAccess) linkedMinecart;
+				if (!partnerData.minecartChain$hasLink(minecart.getUUID())) {
+					partnerData.minecartChain$addLink(minecart.getUUID());
+				}
+				if (!data.minecartChain$hasLink(id)) {
+					data.minecartChain$addLink(id);
+				}
+			}
+			return;
+		}
+
 		Entity linkedEntity = level.getEntity(id);
 		if (linkedEntity == null) {
 			// Partner is unloaded or already gone; keep the UUID so chunk reloads reconnect.
@@ -121,7 +132,13 @@ public final class MinecartTrainLogic {
 			return;
 		}
 		if (!((MinecartChainAccess) linkedMinecart).minecartChain$hasLink(minecart.getUUID())) {
-			data.minecartChain$removeLink(id);
+			// Steam consists can load/tick one cart before the other. Restore the
+			// reciprocal side instead of tearing the wagon off the train.
+			if (steamTrainLocomotive(level, minecart) != null) {
+				((MinecartChainAccess) linkedMinecart).minecartChain$addLink(minecart.getUUID());
+			} else {
+				data.minecartChain$removeLink(id);
+			}
 		}
 	}
 
@@ -255,7 +272,15 @@ public final class MinecartTrainLogic {
 	}
 
 	public static boolean shouldSkipVanillaPhysics(final AbstractMinecart minecart) {
-		return isExternallyGuided(minecart);
+		if (isExternallyGuided(minecart)) {
+			return true;
+		}
+		// Steam followers are positioned on the recorded path. Running vanilla
+		// movement afterwards drives long wagons across the inside of a tight bend.
+		return !(minecart instanceof SteamLocomotiveEntity)
+			&& !MountedTrackCompat.isMounted(minecart)
+			&& minecart.level() instanceof ServerLevel level
+			&& steamTrainLocomotive(level, minecart) != null;
 	}
 
 	public static double couplingDistance() {
@@ -350,6 +375,11 @@ public final class MinecartTrainLogic {
 		if (!(engine.level() instanceof ServerLevel serverLevel)) {
 			return;
 		}
+		if (engine instanceof SteamLocomotiveEntity) {
+			// The locomotive's breadcrumb centreline is authoritative for its
+			// permanent tender and every wagon behind it, especially on tight bends.
+			return;
+		}
 
 		List<AbstractMinecart> train = orderedTrain(serverLevel, engine);
 		if (train.size() < 2) {
@@ -363,13 +393,17 @@ public final class MinecartTrainLogic {
 	}
 
 	private static void guidePoweredTrainAfterLinkedCartTick(final ServerLevel level, final AbstractMinecart minecart) {
-		if (minecart instanceof MinecartFurnace) {
+		if (minecart instanceof MinecartFurnace || minecart instanceof SteamLocomotiveEntity) {
 			return;
 		}
 
 		for (AbstractMinecart trainCart : connectedTrain(level, minecart)) {
 			if (trainCart instanceof MinecartFurnace furnace && isPoweredLocomotive(furnace) && markAfterTickGuided(level, furnace)) {
 				guidePoweredTrain(furnace, drivingDirection(furnace));
+				return;
+			}
+			if (trainCart instanceof SteamLocomotiveEntity steamLocomotive && markAfterTickGuidedSteam(level, steamLocomotive)) {
+				guidePoweredTrain(steamLocomotive, steamLocomotive.getDeltaMovement());
 				return;
 			}
 		}
@@ -382,6 +416,15 @@ public final class MinecartTrainLogic {
 
 		for (AbstractMinecart minecart : orderedTrain(serverLevel, engine)) {
 			setHorizontalMovement(minecart, Vec3.ZERO);
+		}
+
+		if (engine instanceof SteamLocomotiveEntity loco && loco.hasPermanentTender()) {
+			loco.getPermanentTenderId().ifPresent(id -> {
+				Entity e = serverLevel.getEntity(id);
+				if (e instanceof CoalTenderEntity tender) {
+					setHorizontalMovement(tender, Vec3.ZERO);
+				}
+			});
 		}
 	}
 
@@ -573,6 +616,49 @@ public final class MinecartTrainLogic {
 		return train;
 	}
 
+	public static SteamLocomotiveEntity connectedSteamLocomotive(final AbstractMinecart start) {
+		if (start instanceof SteamLocomotiveEntity locomotive) {
+			return locomotive;
+		}
+
+		List<AbstractMinecart> nearby = start.level().getEntities(
+			start,
+			start.getBoundingBox().inflate(96.0D),
+			entity -> entity instanceof AbstractMinecart
+		).stream().map(entity -> (AbstractMinecart) entity).toList();
+		Map<UUID, AbstractMinecart> byId = new HashMap<>();
+		byId.put(start.getUUID(), start);
+		for (AbstractMinecart minecart : nearby) {
+			byId.put(minecart.getUUID(), minecart);
+		}
+
+		List<AbstractMinecart> pending = new ArrayList<>();
+		Set<UUID> visited = new HashSet<>();
+		pending.add(start);
+		visited.add(start.getUUID());
+		for (int index = 0; index < pending.size() && index < MAX_TRAIN_LENGTH; index++) {
+			AbstractMinecart current = pending.get(index);
+			MinecartChainAccess links = (MinecartChainAccess) current;
+			UUID[] linkIds = {
+				links.minecartChain$getFirstLink().orElse(null),
+				links.minecartChain$getSecondLink().orElse(null)
+			};
+			for (UUID linkId : linkIds) {
+				if (linkId == null || !visited.add(linkId)) {
+					continue;
+				}
+				AbstractMinecart linked = byId.get(linkId);
+				if (linked instanceof SteamLocomotiveEntity locomotive) {
+					return locomotive;
+				}
+				if (linked != null) {
+					pending.add(linked);
+				}
+			}
+		}
+		return null;
+	}
+
 	private static List<AbstractMinecart> connectedTrain(final ServerLevel level, final AbstractMinecart start) {
 		List<AbstractMinecart> train = new ArrayList<>();
 		List<AbstractMinecart> pending = new ArrayList<>();
@@ -614,6 +700,10 @@ public final class MinecartTrainLogic {
 	}
 
 	private static void guideFollower(final AbstractMinecart leader, final AbstractMinecart follower, final Vec3 fallbackDirection) {
+		if (isPermanentLink(leader, follower) || isPermanentTenderWagonLink(leader, follower)) {
+			return;
+		}
+
 		if (isExternallyGuided(follower) || isExternallyGuided(leader)) {
 			return;
 		}
@@ -624,8 +714,10 @@ public final class MinecartTrainLogic {
 			return;
 		}
 
-		Vec3 leaderVelocity = horizontalMovement(leader);
-		Vec3 localForward = leaderVelocity.lengthSqr() > 1.0E-5D ? leaderVelocity.normalize() : fallbackDirection;
+		// A train can roll backwards uphill without changing its consist order.
+		// Use the physical direction towards the leader for spacing, not its
+		// velocity (which points towards the follower during a rollback).
+		Vec3 localForward = toLeader.scale(1.0D / distance);
 		double nominalDist = nominalLinkDistance(leader, follower);
 		double minDist = minimumLinkDistance(leader, follower);
 		if (distance < minDist) {
@@ -636,17 +728,6 @@ public final class MinecartTrainLogic {
 			}
 			Vec3 corrected = constrainToRail(follower, alongTravel);
 			corrected = keepFollowerFromClosingGap(leader, follower, corrected, toLeader, distance, fallbackDirection, nominalDist);
-			corrected = capHorizontalSpeed(corrected, MAX_FOLLOWER_SPEED);
-			setHorizontalMovement(follower, corrected);
-			return;
-		}
-
-		if (localForward.lengthSqr() > 1.0E-5D && toLeader.dot(localForward) < -0.05D) {
-			Vec3 slowed = constrainToRail(follower, horizontalMovement(follower).scale(FOLLOWER_OVERTAKE_BRAKE));
-			Vec3 pullBack = railPullVector(follower, toLeader, MAX_LINK_IMPULSE);
-			Vec3 corrected = keepFollowerFromClosingGap(
-				leader, follower, slowed.add(pullBack), toLeader, distance, fallbackDirection, nominalDist
-			);
 			corrected = capHorizontalSpeed(corrected, MAX_FOLLOWER_SPEED);
 			setHorizontalMovement(follower, corrected);
 			return;
@@ -680,7 +761,8 @@ public final class MinecartTrainLogic {
 		final Vec3 fallbackDirection,
 		final double targetDistance
 	) {
-		if (distance > targetDistance + FOLLOWER_SPACING_DEADZONE || toLeader.lengthSqr() <= 1.0E-8D) {
+		double deadzone = isLocomotiveAndTender(leader, follower) ? 0.0D : FOLLOWER_SPACING_DEADZONE;
+		if (distance > targetDistance + deadzone || toLeader.lengthSqr() <= 1.0E-8D) {
 			return candidateVelocity;
 		}
 
@@ -695,6 +777,12 @@ public final class MinecartTrainLogic {
 				0.0D,
 				FOLLOWER_SPACING_RECOVERY_SPEED
 			);
+		}
+
+		if (isLocomotiveAndTender(leader, follower) && distance <= targetDistance) {
+			if (followerTowardLeader > Math.min(0.0D, leaderTowardGap)) {
+				maxFollowerTowardLeader = Math.min(0.0D, leaderTowardGap);
+			}
 		}
 
 		if (followerTowardLeader <= maxFollowerTowardLeader) {
@@ -731,6 +819,11 @@ public final class MinecartTrainLogic {
 	}
 
 	private static void applyLinkConstraint(final AbstractMinecart first, final AbstractMinecart second) {
+		// Never break or alter the rigid permanent link between a locomotive and its tender
+		if (isPermanentLink(first, second)) {
+			return;
+		}
+
 		Vec3 delta = second.position().subtract(first.position()).horizontal();
 		double distance = delta.length();
 		if (distance <= 1.0E-4D) {
@@ -741,10 +834,60 @@ public final class MinecartTrainLogic {
 			return;
 		}
 
-		if (distance > linkBreakDistance(first, second)) {
-			((MinecartChainAccess) first).minecartChain$removeLink(second.getUUID());
-			((MinecartChainAccess) second).minecartChain$removeLink(first.getUUID());
-			dropBrokenChain(first, second);
+		SteamLocomotiveEntity locomotive = steamTrainLocomotive((ServerLevel) first.level(), first);
+		if (locomotive != null) {
+			// The locomotive controls the complete consist by its breadcrumb path.
+			// Spring impulses here fight that path, and breaking on a temporary
+			// distance spike disconnects wagons on tight bends/chunk boundaries.
+			return;
+		}
+		if (distance > 12.0D) {
+			// A chunk transition or track handoff can temporarily separate carts.
+			// Keep the UUID link until the path can recover; never drop a chain
+			// simply because of a transient distance measurement.
+			return;
+		}
+
+		applyLinkConstraintPhysics(first, second);
+	}
+
+	private static SteamLocomotiveEntity steamTrainLocomotive(final ServerLevel level, final AbstractMinecart cart) {
+		for (AbstractMinecart member : connectedTrain(level, cart)) {
+			if (member instanceof SteamLocomotiveEntity locomotive) {
+				return locomotive;
+			}
+		}
+		return null;
+	}
+
+	private static boolean isPermanentLink(final AbstractMinecart first, final AbstractMinecart second) {
+		if (first instanceof SteamLocomotiveEntity loco && second instanceof CoalTenderEntity tender) {
+			if (loco.hasPermanentTender() && loco.getPermanentTenderId().filter(id -> id.equals(tender.getUUID())).isPresent()) {
+				return true;
+			}
+			if (tender.hasPermanentLocomotive() && tender.getPermanentLocomotiveId().filter(id -> id.equals(loco.getUUID())).isPresent()) {
+				return true;
+			}
+		}
+		if (second instanceof SteamLocomotiveEntity loco && first instanceof CoalTenderEntity tender) {
+			if (loco.hasPermanentTender() && loco.getPermanentTenderId().filter(id -> id.equals(tender.getUUID())).isPresent()) {
+				return true;
+			}
+			if (tender.hasPermanentLocomotive() && tender.getPermanentLocomotiveId().filter(id -> id.equals(loco.getUUID())).isPresent()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static void applyLinkConstraintPhysics(final AbstractMinecart first, final AbstractMinecart second) {
+		Vec3 delta = second.position().subtract(first.position()).horizontal();
+		double distance = delta.length();
+		if (distance <= 1.0E-4D) {
+			return;
+		}
+
+		if (isExternallyGuided(first) || isExternallyGuided(second)) {
 			return;
 		}
 
@@ -787,21 +930,6 @@ public final class MinecartTrainLogic {
 		}
 	}
 
-	private static void dropBrokenChain(final AbstractMinecart first, final AbstractMinecart second) {
-		Level level = first.level();
-		if (level.isClientSide()) {
-			return;
-		}
-
-		double x = (first.getX() + second.getX()) * 0.5D;
-		double y = (first.getY() + second.getY()) * 0.5D + 0.25D;
-		double z = (first.getZ() + second.getZ()) * 0.5D;
-		ItemEntity chain = new ItemEntity(level, x, y, z, new ItemStack(Items.IRON_CHAIN));
-		chain.setDefaultPickUpDelay();
-		level.addFreshEntity(chain);
-		level.playSound(null, x, y, z, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.0F, 0.9F);
-	}
-
 	private static void pushMinecartsApart(
 		final AbstractMinecart first,
 		final AbstractMinecart second,
@@ -810,23 +938,27 @@ public final class MinecartTrainLogic {
 		final double minimumDistance
 	) {
 		double deficit = minimumDistance - distance;
-		Vec3 correction = direction.scale(deficit * 0.5D);
-		if (!isEngineLocomotive(first)) {
-			moveIfNotMounted(first, constrainToRail(first, correction.reverse()));
+		boolean firstEngine = isEngineLocomotive(first);
+		boolean secondEngine = isEngineLocomotive(second);
+		double firstWeight = (firstEngine || secondEngine) ? (firstEngine ? 0.0D : 1.0D) : 0.5D;
+		double secondWeight = (firstEngine || secondEngine) ? (secondEngine ? 0.0D : 1.0D) : 0.5D;
+
+		if (!firstEngine) {
+			moveIfNotMounted(first, constrainToRail(first, direction.scale(deficit * firstWeight).reverse()));
 		}
-		if (!isEngineLocomotive(second)) {
-			moveIfNotMounted(second, constrainToRail(second, correction));
+		if (!secondEngine) {
+			moveIfNotMounted(second, constrainToRail(second, direction.scale(deficit * secondWeight)));
 		}
 
 		double impulseLimit = linkImpulseLimit(first, second);
 		double minimumImpulse = impulseLimit == MAX_GUIDED_LINK_IMPULSE ? 0.01D : 0.04D;
 		double impulse = Mth.clamp(deficit * MIN_DISTANCE_PUSH, minimumImpulse, impulseLimit);
 		Vec3 push = direction.scale(impulse);
-		if (!isEngineLocomotive(first)) {
-			addHorizontalMovement(first, constrainToRail(first, push.reverse()));
+		if (!firstEngine) {
+			addHorizontalMovement(first, constrainToRail(first, push.reverse()).scale(firstWeight > 0.5D ? 1.5D : 1.0D));
 		}
-		if (!isEngineLocomotive(second)) {
-			addHorizontalMovement(second, constrainToRail(second, push));
+		if (!secondEngine) {
+			addHorizontalMovement(second, constrainToRail(second, push).scale(secondWeight > 0.5D ? 1.5D : 1.0D));
 		}
 	}
 
@@ -838,12 +970,16 @@ public final class MinecartTrainLogic {
 		final double maxDistance
 	) {
 		double excess = distance - maxDistance;
-		Vec3 correction = direction.scale(excess * 0.5D);
-		if (!isEngineLocomotive(first)) {
-			moveIfNotMounted(first, constrainToRail(first, correction));
+		boolean firstEngine = isEngineLocomotive(first);
+		boolean secondEngine = isEngineLocomotive(second);
+		double firstWeight = (firstEngine || secondEngine) ? (firstEngine ? 0.0D : 1.0D) : 0.5D;
+		double secondWeight = (firstEngine || secondEngine) ? (secondEngine ? 0.0D : 1.0D) : 0.5D;
+
+		if (!firstEngine) {
+			moveIfNotMounted(first, constrainToRail(first, direction.scale(excess * firstWeight)));
 		}
-		if (!isEngineLocomotive(second)) {
-			moveIfNotMounted(second, constrainToRail(second, correction.reverse()));
+		if (!secondEngine) {
+			moveIfNotMounted(second, constrainToRail(second, direction.scale(excess * secondWeight).reverse()));
 		}
 
 		double separationSpeed = horizontalMovement(second).subtract(horizontalMovement(first)).horizontal().dot(direction);
@@ -853,10 +989,10 @@ public final class MinecartTrainLogic {
 			linkImpulseLimit(first, second)
 		);
 		Vec3 damping = direction.scale(pull);
-		if (!isEngineLocomotive(first)) {
+		if (!firstEngine) {
 			addHorizontalMovement(first, constrainToRail(first, damping).scale(linkWeight(first)));
 		}
-		if (!isEngineLocomotive(second)) {
+		if (!secondEngine) {
 			addHorizontalMovement(second, constrainToRail(second, damping.reverse()).scale(linkWeight(second)));
 		}
 	}
@@ -868,28 +1004,50 @@ public final class MinecartTrainLogic {
 			: MAX_LINK_IMPULSE;
 	}
 
+	public static boolean isLocomotiveAndTender(final AbstractMinecart first, final AbstractMinecart second) {
+		return (first instanceof SteamLocomotiveEntity && second instanceof CoalTenderEntity)
+			|| (first instanceof CoalTenderEntity && second instanceof SteamLocomotiveEntity);
+	}
+
+	private static boolean isPermanentTenderWagonLink(final AbstractMinecart first, final AbstractMinecart second) {
+		if (first instanceof CoalTenderEntity tender && tender.hasPermanentLocomotive()) {
+			return !(second instanceof SteamLocomotiveEntity)
+				&& ((MinecartChainAccess) tender).minecartChain$hasLink(second.getUUID());
+		}
+		if (second instanceof CoalTenderEntity tender && tender.hasPermanentLocomotive()) {
+			return !(first instanceof SteamLocomotiveEntity)
+				&& ((MinecartChainAccess) tender).minecartChain$hasLink(first.getUUID());
+		}
+		return false;
+	}
+
 	private static boolean hasSteamLocomotive(final AbstractMinecart first, final AbstractMinecart second) {
-		return first instanceof SteamLocomotiveEntity || second instanceof SteamLocomotiveEntity;
+		return first instanceof SteamLocomotiveEntity || second instanceof SteamLocomotiveEntity
+			|| first instanceof CoalTenderEntity || second instanceof CoalTenderEntity
+			|| first instanceof LongMinecartEntity || second instanceof LongMinecartEntity
+			|| first instanceof LongChestMinecartEntity || second instanceof LongChestMinecartEntity;
 	}
 
 	private static double nominalLinkDistance(final AbstractMinecart first, final AbstractMinecart second) {
-		return hasSteamLocomotive(first, second) ? 2.50D : LINK_DISTANCE;
+		if (isLocomotiveAndTender(first, second) || hasSteamLocomotive(first, second)) {
+			return SteamLocomotiveEntity.bufferRest(first, second);
+		}
+		return LINK_DISTANCE;
 	}
 
 	private static double maximumLinkDistance(final AbstractMinecart first, final AbstractMinecart second) {
-		return hasSteamLocomotive(first, second) ? 2.75D : MAX_LINK_DISTANCE;
-	}
-
-	private static double linkBreakDistance(final AbstractMinecart first, final AbstractMinecart second) {
-		return hasSteamLocomotive(first, second) ? 4.5D : LINK_BREAK_DISTANCE;
+		if (isLocomotiveAndTender(first, second) || isPermanentTenderWagonLink(first, second) || hasSteamLocomotive(first, second)) {
+			return SteamLocomotiveEntity.bufferRest(first, second) + 0.85D;
+		}
+		return MAX_LINK_DISTANCE;
 	}
 
 	private static double minimumLinkDistance(final AbstractMinecart first, final AbstractMinecart second) {
+		if (isLocomotiveAndTender(first, second) || isPermanentTenderWagonLink(first, second) || hasSteamLocomotive(first, second)) {
+			return SteamLocomotiveEntity.bufferSolid(first, second);
+		}
 		boolean guided = externalTrackDirection(first).lengthSqr() > 1.0E-8D
 			|| externalTrackDirection(second).lengthSqr() > 1.0E-8D;
-		if (hasSteamLocomotive(first, second)) {
-			return guided ? 1.85D : 2.10D;
-		}
 		return guided ? MIN_GUIDED_LINK_DISTANCE : MIN_LINK_DISTANCE;
 	}
 
@@ -966,7 +1124,16 @@ public final class MinecartTrainLogic {
 		Vec3 curvedRailDirection = curvedRailDirection(minecart);
 		if (curvedRailDirection.lengthSqr() > 1.0E-8D) {
 			Vec3 current = minecart.getDeltaMovement();
-			Vec3 constrained = curvedRailDirection.scale(movement.horizontal().dot(curvedRailDirection));
+			Vec3 commanded = movement.horizontal();
+			// The curve tangent is sampled from the cart's own velocity. Wagon resistance
+			// deflects that sample, and projecting onto it turns a slowdown into a new
+			// heading. A tender locomotive's command is already along its travel axis.
+			if (minecart instanceof SteamLocomotiveEntity locomotive && locomotive.hasPermanentTender()
+				&& commanded.lengthSqr() > 1.0E-8D) {
+				minecart.setDeltaMovement(commanded.x, current.y, commanded.z);
+				return;
+			}
+			Vec3 constrained = curvedRailDirection.scale(commanded.dot(curvedRailDirection));
 			minecart.setDeltaMovement(constrained.x, current.y, constrained.z);
 			return;
 		}
@@ -1100,6 +1267,13 @@ public final class MinecartTrainLogic {
 		long gameTime = level.getGameTime();
 		cleanupAfterTickGuideCache(gameTime);
 		Long previousTick = LAST_AFTER_TICK_GUIDE.put(furnace.getUUID(), gameTime);
+		return previousTick == null || previousTick != gameTime;
+	}
+
+	private static boolean markAfterTickGuidedSteam(final ServerLevel level, final SteamLocomotiveEntity locomotive) {
+		long gameTime = level.getGameTime();
+		cleanupAfterTickGuideCache(gameTime);
+		Long previousTick = LAST_AFTER_TICK_GUIDE.put(locomotive.getUUID(), gameTime);
 		return previousTick == null || previousTick != gameTime;
 	}
 

@@ -1,0 +1,51 @@
+{
+  "fabric:load_conditions": [
+    {
+      "condition": "fabric:all_mods_loaded",
+      "values": [
+        "peterwolfs_txrx_redstone"
+      ]
+    }
+  ],
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_steam_locomotive": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecart_chain:steam_locomotive"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_receiver": {
+      "conditions": {
+        "items": [
+          {
+            "items": "peterwolfs_txrx_redstone:receiver"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipes": "minecart_chain:radio_steam_locomotive"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_steam_locomotive",
+      "has_receiver"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "minecart_chain:radio_steam_locomotive"
+    ]
+  }
+}

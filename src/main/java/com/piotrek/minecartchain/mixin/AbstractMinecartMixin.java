@@ -1,7 +1,10 @@
 package com.piotrek.minecartchain.mixin;
 
+import com.piotrek.minecartchain.CoalTenderEntity;
 import com.piotrek.minecartchain.MinecartChainAccess;
+import com.piotrek.minecartchain.MinecartLinkHandler;
 import com.piotrek.minecartchain.MinecartTrainLogic;
+import com.piotrek.minecartchain.SteamLocomotiveEntity;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -14,6 +17,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
+import net.minecraft.world.entity.vehicle.minecart.MinecartBehavior;
 import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -23,6 +27,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(AbstractMinecart.class)
@@ -108,9 +113,37 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 		builder.define(ARMED, true);
 	}
 
+	@Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/vehicle/minecart/MinecartBehavior;tick()V"))
+	private void minecartChain$hingedTenderUsesLocomotiveTrack(final MinecartBehavior behavior) {
+		AbstractMinecart cart = (AbstractMinecart) (Object) this;
+		// The two-block tender is a kinematic wagon controlled by the
+		// locomotive's 3D track path, not an independently moving minecart.
+		// Still run the surrounding vanilla tick for interpolation and fluids.
+		if (cart instanceof CoalTenderEntity tender && tender.hasPermanentLocomotive()
+			&& cart.level() instanceof ServerLevel) {
+			return;
+		}
+		behavior.tick();
+	}
+
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void minecartChain$tick(final CallbackInfo ci) {
 		MinecartTrainLogic.tickLinks((AbstractMinecart) (Object) this);
+	}
+
+	@Inject(method = "push", at = @At("HEAD"), cancellable = true)
+	private void minecartChain$preventPushBetweenLinkedOrPermanentCarts(final Entity entity, final CallbackInfo ci) {
+		if (entity instanceof AbstractMinecart other) {
+			AbstractMinecart self = (AbstractMinecart) (Object) this;
+			if (self.level() instanceof ServerLevel serverLevel) {
+				if (MinecartLinkHandler.isPermanentLink(serverLevel, self, other.getUUID())
+					|| MinecartLinkHandler.isPermanentLink(serverLevel, other, self.getUUID())
+					|| ((MinecartChainAccess) self).minecartChain$hasLink(other.getUUID())
+					|| ((MinecartChainAccess) other).minecartChain$hasLink(self.getUUID())) {
+					ci.cancel();
+				}
+			}
+		}
 	}
 
 	/**
@@ -135,17 +168,29 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 		}
 
 		MinecartChainAccess data = this;
-		int linkCount = data.minecartChain$linkCount();
-		this.minecartChain$getFirstLink().ifPresent(linkId -> this.minecartChain$notifyPartnerUnlink(serverLevel, self, linkId));
-		this.minecartChain$getSecondLink().ifPresent(linkId -> this.minecartChain$notifyPartnerUnlink(serverLevel, self, linkId));
+		int droppedChains = 0;
+		if (this.minecartChain$getFirstLink().isPresent()) {
+			UUID linkId = this.minecartChain$getFirstLink().get();
+			if (!MinecartLinkHandler.isPermanentLink(serverLevel, self, linkId)) {
+				droppedChains++;
+			}
+			this.minecartChain$notifyPartnerUnlink(serverLevel, self, linkId);
+		}
+		if (this.minecartChain$getSecondLink().isPresent()) {
+			UUID linkId = this.minecartChain$getSecondLink().get();
+			if (!MinecartLinkHandler.isPermanentLink(serverLevel, self, linkId)) {
+				droppedChains++;
+			}
+			this.minecartChain$notifyPartnerUnlink(serverLevel, self, linkId);
+		}
 		data.minecartChain$clearLinks();
-		if (linkCount > 0) {
+		if (droppedChains > 0) {
 			ItemEntity chain = new ItemEntity(
 				serverLevel,
 				self.getX(),
 				self.getY() + 0.25D,
 				self.getZ(),
-				new ItemStack(Items.IRON_CHAIN, linkCount)
+				new ItemStack(Items.IRON_CHAIN, droppedChains)
 			);
 			chain.setDefaultPickUpDelay();
 			serverLevel.addFreshEntity(chain);
@@ -247,6 +292,10 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 
 	@Override
 	public void minecartChain$removeLink(final UUID uuid) {
+		AbstractMinecart self = (AbstractMinecart) (Object) this;
+		if (self.level() instanceof ServerLevel serverLevel && MinecartLinkHandler.isPermanentLink(serverLevel, self, uuid)) {
+			return;
+		}
 		this.minecartChain$getFirstLink()
 			.filter(uuid::equals)
 			.ifPresent(ignored -> this.minecartChain$setLinkString(LINK_A, EMPTY_LINK));
@@ -257,6 +306,24 @@ public abstract class AbstractMinecartMixin implements MinecartChainAccess {
 
 	@Override
 	public void minecartChain$clearLinks() {
+		AbstractMinecart self = (AbstractMinecart) (Object) this;
+		if (self.level() instanceof ServerLevel serverLevel) {
+			UUID permLink = null;
+			if (self instanceof SteamLocomotiveEntity loco && loco.hasPermanentTender()) {
+				permLink = loco.getPermanentTenderId().orElse(null);
+			} else if (self instanceof CoalTenderEntity tender && tender.hasPermanentLocomotive()) {
+				permLink = tender.getPermanentLocomotiveId().orElse(null);
+			}
+			if (permLink != null) {
+				if (!this.minecartChain$getFirstLink().filter(permLink::equals).isPresent()) {
+					this.minecartChain$setLinkString(LINK_A, EMPTY_LINK);
+				}
+				if (!this.minecartChain$getSecondLink().filter(permLink::equals).isPresent()) {
+					this.minecartChain$setLinkString(LINK_B, EMPTY_LINK);
+				}
+				return;
+			}
+		}
 		this.minecartChain$setLinkString(LINK_A, EMPTY_LINK);
 		this.minecartChain$setLinkString(LINK_B, EMPTY_LINK);
 	}

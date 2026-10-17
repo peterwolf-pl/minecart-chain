@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.1.3
+
+### Fixes
+- **Crash without TX/RX Redstone mod:** Radio Locomotive and Radio Steam Locomotive advancement files now include `fabric:load_conditions` (`fabric:all_mods_loaded`), matching their corresponding recipes. Previously the advancements loaded unconditionally and crashed the game during registry loading because `peterwolfs_txrx_redstone:receiver` was not in the item registry.
+
+## 1.1.2
+
+### Fixes & Improvements
+- **Radio Controlled Steam Locomotive:**
+  - In layout mode, receiving a 50% signal (redstone power 7 or 8 / potentiometer 12:00 neutral) now activates full train brake (`throttle = -1.0F` and `applyTrainBrake`) instead of coasting in idle (`0.0F`).
+  - Matches model railway behavior: the locomotive halts and locks firmly on stop without drifting, rolling downhill, or requiring manual braking.
+  - Automatically brakes when disarmed, when waiting for a reverse stop, when running out of fuel/water, or on 0% signal in classic mode.
+  - Driver inputs (W/S/R) in the cab no longer fight or override radio control on radio locomotives.
+  - In-cab HUD clearly displays radio control status (`[RADIO]`, `Brake: 100% [STOP]`).
+
+## 1.1.1
+
+### Features
+- **Steam Locomotive:**
+  - Added new 2-block Steam Locomotive (`minecart_chain:steam_locomotive`) featuring a steel boiler, smoke box, chimney, detailed cab interior with boiler backplate gauges, seating bench, and 8 drive wheels with animated side rods.
+  - Interactive player cab driving with **W / S** throttle and brake control.
+  - **Emergency Brake:** double-tapping **S** within 300 ms immediately applies 100% full brake (`-1.0` throttle).
+  - **Reverser key (R):** seamlessly reverses driving thrust without flipping the locomotive yaw or model orientation (boiler and chimney always point forward along the track).
+  - **Remote Coupler key (C):** couples or uncouples wagons dynamically from the cab. Extended coupling range detects the nearest wagon up to **4 blocks** behind the consist tail (or tender).
+  - Custom cab HUD displaying live speed (km/h), throttle percentage, reverser status, and coupler state.
+  - **Extended Lever Reach:** while seated in the locomotive cab, the player's interaction reach for trackside levers (`LeverBlock`) is doubled (up to 9+ blocks).
+
+- **Steam Locomotive with Tender (Consist Pair):**
+  - Added combined item (`minecart_chain:steam_locomotive_with_tender`) that spawns the steam engine coupled directly to its coal tender on rails.
+  - Kinematic hinged articulation: the tender follows the authoritative 3D breadcrumb track trail of the locomotive, matching velocity without lagging behind.
+  - Consist buffer beams: wagons and tender cushion against each other during braking and reverse moves, preventing cars from telescoping or clipping through the locomotive.
+  - The cab coupler key (**C**) automatically manages wagons behind the tender.
+
+- **Long Minecart (Double Length):**
+  - Added new 2-block minecart platform (`minecart_chain:long_minecart`) with 8 animated wheels.
+  - Crafting recipe using iron ingots and a standard minecart.
+
+- **Long Minecart with Double Chest:**
+  - Added new 2-block cargo wagon (`minecart_chain:long_chest_minecart`) with a built-in double chest offering **54 inventory slots**.
+  - Full player access: right-click to open the double chest inventory menu; items persist and drop upon destruction.
+  - Detailed model with wooden chest body, dark iron trims, lid seam, and dual gold latches.
+  - Shapeless crafting recipe: Long Minecart + 2 Chests.
+  - Added to *Redstone Blocks* and *Tools & Utilities* creative tabs.
+
+### Physics & Cornering Improvements
+- **Tight Curve Navigation:**
+  - Reworked multi-axle wagon guidance through tight bends: body yaw and pitch are sampled between bogie axle positions along the recorded rail path, preventing corner-cutting and derailment.
+  - Reduced curve rolling resistance, restoring full tractive power so locomotives can pull heavy consists uphill.
+  - **Direction Lock:** wagon drag on curves and deceleration cannot rotate, bounce, or invert the locomotive's established travel direction.
+
 ## 1.1.0
 
 ### Features

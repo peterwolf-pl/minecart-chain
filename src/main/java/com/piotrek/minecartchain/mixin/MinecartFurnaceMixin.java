@@ -277,6 +277,10 @@ public abstract class MinecartFurnaceMixin implements MinecartLocomotiveAccess {
 				);
 			} else {
 				data.minecartChain$setReversePending(true);
+				this.push = Vec3.ZERO;
+				MinecartTrainLogic.applyTrainBrake(furnace);
+				this.setHasFuel(false);
+				return;
 			}
 		} else {
 			data.minecartChain$setReversePending(false);

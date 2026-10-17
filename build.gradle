@@ -38,6 +38,19 @@ dependencies {
 		clientCompileOnly files(txrxClasses)
 	}
 
+	def splinecartDir = file('../peterwolfs-Splinecart/build/libs')
+	def splinecartClasses = file('../peterwolfs-Splinecart/build/classes/java/main')
+	if (splinecartDir.exists()) {
+		def jars = fileTree(dir: splinecartDir, include: ['splinecart*.jar'], exclude: ['*-sources.jar'])
+		compileOnly jars
+		clientCompileOnly jars
+		localRuntime jars
+	}
+	if (splinecartClasses.exists()) {
+		compileOnly files(splinecartClasses)
+		clientCompileOnly files(splinecartClasses)
+	}
+
 }
 
 processResources {

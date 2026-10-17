@@ -1,12 +1,15 @@
 package com.piotrek.minecartchain;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.vehicle.minecart.MinecartFurnace;
+import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.MenuType;
@@ -33,7 +36,7 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 	public static final int DATA_COUNT = 14;
 	private static final double MAX_INTERACTION_DISTANCE = 8.0D;
 
-	private final MinecartFurnace furnace;
+	private final AbstractMinecart locomotive;
 	private final ContainerData data;
 	private final Container inputContainer = new SimpleContainer(2);
 
@@ -41,19 +44,19 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 		this(containerId, inventory, null, new SimpleContainerData(DATA_COUNT));
 	}
 
-	public RadioLocomotiveMenu(final int containerId, final Inventory inventory, final MinecartFurnace furnace) {
-		this(containerId, inventory, furnace, createData(furnace));
+	public RadioLocomotiveMenu(final int containerId, final Inventory inventory, final AbstractMinecart locomotive) {
+		this(containerId, inventory, locomotive, createData(locomotive));
 	}
 
 	private RadioLocomotiveMenu(
 		final int containerId,
 		final Inventory inventory,
-		final MinecartFurnace furnace,
+		final AbstractMinecart locomotive,
 		final ContainerData data
 	) {
 		super(resolveMenuType(), containerId);
 		checkContainerDataCount(data, DATA_COUNT);
-		this.furnace = furnace;
+		this.locomotive = locomotive;
 		this.data = data;
 
 		// Input slots for fuel and water
@@ -70,7 +73,7 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 			}
 		});
 
-		this.addSlot(new Slot(this.inputContainer, 1, 132, 100) {
+		this.addSlot(new Slot(this.inputContainer, 1, 92, 100) {
 			@Override
 			public boolean mayPlace(final ItemStack stack) {
 				return stack.is(Items.WATER_BUCKET);
@@ -96,8 +99,15 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 		return (MenuType<RadioLocomotiveMenu>) menu;
 	}
 
+	public static void open(final ServerPlayer player, final AbstractMinecart locomotive) {
+		player.openMenu(new SimpleMenuProvider(
+			(containerId, inventory, p) -> new RadioLocomotiveMenu(containerId, inventory, locomotive),
+			Component.translatable("container.minecart_chain.radio_locomotive")
+		));
+	}
+
 	public void tryConsumeInputs() {
-		if (this.furnace == null || this.furnace.level().isClientSide()) {
+		if (this.locomotive == null || this.locomotive.level().isClientSide()) {
 			return;
 		}
 
@@ -105,14 +115,14 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 		if (fuelSlot.hasItem()) {
 			ItemStack fuelStack = fuelSlot.getItem();
 			if (MinecartLocomotiveResources.isCookingFuel(fuelStack)) {
-				MinecartLocomotiveAccess locAccess = (MinecartLocomotiveAccess) this.furnace;
+				MinecartLocomotiveAccess locAccess = (MinecartLocomotiveAccess) this.locomotive;
 				if (locAccess.minecartChain$canAcceptLocomotiveFuel(fuelStack)) {
 					int added = locAccess.minecartChain$addLocomotiveFuel(fuelStack);
 					if (added > 0) {
 						fuelStack.shrink(1);
 						fuelSlot.setChanged();
-						this.furnace.level().playSound(
-							null, this.furnace.getX(), this.furnace.getY(), this.furnace.getZ(),
+						this.locomotive.level().playSound(
+							null, this.locomotive.getX(), this.locomotive.getY(), this.locomotive.getZ(),
 							SoundEvents.FURNACE_FIRE_CRACKLE, SoundSource.BLOCKS, 0.8F, 1.2F
 						);
 					}
@@ -124,15 +134,15 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 		if (waterSlot.hasItem()) {
 			ItemStack waterStack = waterSlot.getItem();
 			if (waterStack.is(Items.WATER_BUCKET)) {
-				MinecartChainAccess chainAccess = (MinecartChainAccess) this.furnace;
+				MinecartChainAccess chainAccess = (MinecartChainAccess) this.locomotive;
 				int accepted = chainAccess.minecartChain$addWaterTicks(
 					MinecartLocomotiveResources.WATER_TICKS_PER_BUCKET,
 					MinecartLocomotiveResources.MAX_WATER_TICKS
 				);
 				if (accepted > 0) {
 					waterSlot.set(new ItemStack(Items.BUCKET));
-					this.furnace.level().playSound(
-						null, this.furnace.getX(), this.furnace.getY(), this.furnace.getZ(),
+					this.locomotive.level().playSound(
+						null, this.locomotive.getX(), this.locomotive.getY(), this.locomotive.getZ(),
 						SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 0.9F, 1.0F
 					);
 				}
@@ -141,11 +151,11 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 	}
 
 	public void handleSetJumper(final boolean isReverse, final int bit, final boolean state) {
-		if (this.furnace == null || !this.furnace.isAlive() || bit < 0 || bit > 7) {
+		if (this.locomotive == null || !this.locomotive.isAlive() || bit < 0 || bit > 7) {
 			return;
 		}
 
-		MinecartChainAccess dataAccess = (MinecartChainAccess) this.furnace;
+		MinecartChainAccess dataAccess = (MinecartChainAccess) this.locomotive;
 		int current = isReverse ? dataAccess.minecartChain$getReverseChannel() : dataAccess.minecartChain$getThrottleChannel();
 		int updated = state ? (current | (1 << bit)) : (current & ~(1 << bit));
 		if (!isReverse) {
@@ -154,102 +164,58 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 			dataAccess.minecartChain$setReverseChannel(updated);
 		}
 
-		this.furnace.level().playSound(
-			null, this.furnace.getX(), this.furnace.getY(), this.furnace.getZ(),
+		this.locomotive.level().playSound(
+			null, this.locomotive.getX(), this.locomotive.getY(), this.locomotive.getZ(),
 			SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.6F, state ? 1.15F : 0.85F
 		);
-		this.broadcastChanges();
 	}
 
-	public void setBitLocally(final boolean isReverse, final int bit, final boolean state) {
-		if (bit < 0 || bit > 7) {
-			return;
+	private void addStandardInventorySlots(final Inventory inventory, final int left, final int top) {
+		for (int row = 0; row < 3; row++) {
+			for (int col = 0; col < 9; col++) {
+				this.addSlot(new Slot(inventory, col + row * 9 + 9, left + col * 18, top + row * 18));
+			}
 		}
-		int slot = isReverse ? DATA_REVERSE_CH : DATA_THROTTLE_CH;
-		int current = this.data.get(slot) & 0xFF;
-		int updated = state ? (current | (1 << bit)) : (current & ~(1 << bit));
-		this.data.set(slot, updated);
-	}
-
-	public void handleJumperToggle(final boolean isReverse, final int bit) {
-		if (this.furnace == null || !this.furnace.isAlive() || bit < 0 || bit > 7) {
-			return;
+		for (int col = 0; col < 9; col++) {
+			this.addSlot(new Slot(inventory, col, left + col * 18, top + 58));
 		}
-
-		MinecartChainAccess dataAccess = (MinecartChainAccess) this.furnace;
-		int current = isReverse ? dataAccess.minecartChain$getReverseChannel() : dataAccess.minecartChain$getThrottleChannel();
-		boolean currentBit = (current & (1 << bit)) != 0;
-		handleSetJumper(isReverse, bit, !currentBit);
-	}
-
-	public void toggleBitLocally(final boolean isReverse, final int bit) {
-		if (bit < 0 || bit > 7) {
-			return;
-		}
-		int slot = isReverse ? DATA_REVERSE_CH : DATA_THROTTLE_CH;
-		int current = this.data.get(slot) & 0xFF;
-		boolean currentBit = (current & (1 << bit)) != 0;
-		setBitLocally(isReverse, bit, !currentBit);
 	}
 
 	@Override
-	public boolean clickMenuButton(final Player player, final int id) {
-		if (id >= 0 && id <= 7) {
-			this.handleJumperToggle(false, id);
-			return true;
-		} else if (id >= 8 && id <= 15) {
-			this.handleJumperToggle(true, id - 8);
-			return true;
+	public ItemStack quickMoveStack(final Player player, final int index) {
+		Slot slot = this.slots.get(index);
+		if (!slot.hasItem()) {
+			return ItemStack.EMPTY;
 		}
-		return false;
-	}
 
-	@Override
-	public ItemStack quickMoveStack(final Player player, final int slotIndex) {
-		ItemStack clicked = ItemStack.EMPTY;
-		Slot slot = this.slots.get(slotIndex);
-		if (slot.hasItem()) {
-			ItemStack stack = slot.getItem();
-			clicked = stack.copy();
-			// Slots 0 & 1 are fuel & water inputs
-			// Slots 2..28 are player inventory
-			// Slots 29..37 are hotbar
-			if (slotIndex < 2) {
-				if (!this.moveItemStackTo(stack, 2, 38, true)) {
-					return ItemStack.EMPTY;
-				}
-			} else {
-				if (MinecartLocomotiveResources.isCookingFuel(stack)) {
-					if (!this.moveItemStackTo(stack, 0, 1, false)) {
-						return ItemStack.EMPTY;
-					}
-				} else if (stack.is(Items.WATER_BUCKET)) {
-					if (!this.moveItemStackTo(stack, 1, 2, false)) {
-						return ItemStack.EMPTY;
-					}
-				} else if (slotIndex < 29) {
-					if (!this.moveItemStackTo(stack, 29, 38, false)) {
-						return ItemStack.EMPTY;
-					}
-				} else if (!this.moveItemStackTo(stack, 2, 29, false)) {
-					return ItemStack.EMPTY;
-				}
-			}
+		ItemStack stack = slot.getItem();
+		ItemStack copy = stack.copy();
 
-			if (stack.isEmpty()) {
-				slot.setByPlayer(ItemStack.EMPTY);
-			} else {
-				slot.setChanged();
-			}
-
-			if (stack.getCount() == clicked.getCount()) {
+		if (index < 2) {
+			if (!this.moveItemStackTo(stack, 2, this.slots.size(), true)) {
 				return ItemStack.EMPTY;
 			}
-
-			slot.onTake(player, stack);
+		} else {
+			if (MinecartLocomotiveResources.isCookingFuel(stack)) {
+				if (!this.moveItemStackTo(stack, 0, 1, false)) {
+					return ItemStack.EMPTY;
+				}
+			} else if (stack.is(Items.WATER_BUCKET)) {
+				if (!this.moveItemStackTo(stack, 1, 2, false)) {
+					return ItemStack.EMPTY;
+				}
+			} else {
+				return ItemStack.EMPTY;
+			}
 		}
 
-		return clicked;
+		if (stack.isEmpty()) {
+			slot.set(ItemStack.EMPTY);
+		} else {
+			slot.setChanged();
+		}
+
+		return copy;
 	}
 
 	@Override
@@ -260,18 +226,24 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 
 	@Override
 	public boolean stillValid(final Player player) {
-		return this.furnace == null
-			|| (this.furnace.isAlive()
-			&& !this.furnace.isRemoved()
-			&& player.distanceToSqr(this.furnace) <= MAX_INTERACTION_DISTANCE * MAX_INTERACTION_DISTANCE);
+		return this.locomotive == null
+			|| (this.locomotive.isAlive()
+			&& !this.locomotive.isRemoved()
+			&& player.distanceToSqr(this.locomotive) <= MAX_INTERACTION_DISTANCE * MAX_INTERACTION_DISTANCE);
 	}
 
 	public int throttleChannel() {
-		return this.data.get(DATA_THROTTLE_CH) & 0xFF;
+		return this.data.get(DATA_THROTTLE_CH);
 	}
 
 	public int reverseChannel() {
-		return this.data.get(DATA_REVERSE_CH) & 0xFF;
+		return this.data.get(DATA_REVERSE_CH);
+	}
+
+	public void setBitLocally(final boolean isReverse, final int bit, final boolean state) {
+		int current = isReverse ? reverseChannel() : throttleChannel();
+		int updated = state ? (current | (1 << bit)) : (current & ~(1 << bit));
+		this.data.set(isReverse ? DATA_REVERSE_CH : DATA_THROTTLE_CH, updated);
 	}
 
 	public int throttlePower() {
@@ -332,19 +304,19 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 		return max <= 0 ? 0.0F : Math.min(1.0F, Math.max(0.0F, (float) waterTicks() / max));
 	}
 
-	private static ContainerData createData(final MinecartFurnace furnace) {
+	private static ContainerData createData(final AbstractMinecart locomotive) {
 		return new ContainerData() {
 			@Override
 			public int get(final int dataId) {
-				MinecartChainAccess chain = (MinecartChainAccess) furnace;
-				MinecartLocomotiveAccess loc = (MinecartLocomotiveAccess) furnace;
+				MinecartChainAccess chain = (MinecartChainAccess) locomotive;
+				MinecartLocomotiveAccess loc = (MinecartLocomotiveAccess) locomotive;
 				return switch (dataId) {
 					case DATA_THROTTLE_CH -> chain.minecartChain$getThrottleChannel() & 0xFF;
 					case DATA_REVERSE_CH -> chain.minecartChain$getReverseChannel() & 0xFF;
 					case DATA_THROTTLE_PWR -> chain.minecartChain$getReceivedThrottlePower();
 					case DATA_REVERSE_PWR -> chain.minecartChain$getReceivedReversePower();
 					case DATA_IS_REVERSED -> chain.minecartChain$isReversed() ? 1 : 0;
-					case DATA_IS_STOPPED -> MinecartTrainLogic.isTrainStopped(furnace) ? 1 : 0;
+					case DATA_IS_STOPPED -> MinecartTrainLogic.isTrainStopped(locomotive) ? 1 : 0;
 					case DATA_REVERSE_PENDING -> chain.minecartChain$isReversePending() ? 1 : 0;
 					case DATA_FUEL -> loc.minecartChain$getLocomotiveFuelTicks();
 					case DATA_MAX_FUEL -> MinecartLocomotiveResources.MAX_FUEL_TICKS;
@@ -359,7 +331,7 @@ public class RadioLocomotiveMenu extends AbstractContainerMenu {
 
 			@Override
 			public void set(final int dataId, final int value) {
-				MinecartChainAccess chain = (MinecartChainAccess) furnace;
+				MinecartChainAccess chain = (MinecartChainAccess) locomotive;
 				switch (dataId) {
 					case DATA_THROTTLE_CH -> chain.minecartChain$setThrottleChannel(value);
 					case DATA_REVERSE_CH -> chain.minecartChain$setReverseChannel(value);
